@@ -1,0 +1,25 @@
+{
+  "name": "your-music",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.4",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@iconify/vue": "^5.0.0",
+    "@vueuse/core": "^14.2.1",
+    "pinia": "^3.0.4",
+    "sass": "^1.97.2",
+    "vue": "^3.5.29",
+    "vue-router": "^4.6.4"
+  }
+}
