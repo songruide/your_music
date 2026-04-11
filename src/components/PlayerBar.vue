@@ -1,141 +1,264 @@
+<script setup lang="ts">
+import { FullScreen } from '@element-plus/icons-vue'
+import { ListMusic, Volume2 } from 'lucide-vue-next'
+</script>
+
 <template>
-  <footer class="player">
-    <div class="player__meta">
-      <img class="player__cover" src="https://picsum.photos/seed/album/72/72" alt="cover" />
-      <div>
-        <div class="player__name">Intro AE 86</div>
-        <div class="player__artist">陈光荣</div>
-      </div>
-    </div>
-
-    <div class="player__center">
-      <div class="player__controls">
-        <button>◀◀</button>
-        <button class="player__play">▶</button>
-        <button>▶▶</button>
-      </div>
-
-      <div class="player__progress">
-        <span class="player__time">00:00</span>
-        <div class="player__track">
-          <span class="player__bar"></span>
+  <footer class="player" aria-label="Playback controls">
+    <div class="player__shell">
+      <div class="player__meta">
+        <div class="player__cover-box">
+          <img class="player__cover" src="https://picsum.photos/seed/album/84/84" alt="cover" />
         </div>
-        <span class="player__time">02:29</span>
+        <div class="player__copy">
+          <div class="player__name">未知歌曲</div>
+          <div class="player__artist">未加载音频</div>
+        </div>
+      </div>
+
+      <div class="player__center">
+        <button class="player__icon-button player__skip player__skip--prev" aria-label="Previous track">
+          <span class="player__chevron"></span>
+          <span class="player__chevron"></span>
+        </button>
+        <button class="player__play" aria-label="Play">
+          <span class="player__play-icon"></span>
+        </button>
+        <button class="player__icon-button player__skip player__skip--next" aria-label="Next track">
+          <span class="player__chevron"></span>
+          <span class="player__chevron"></span>
+        </button>
+        <button class="player__icon-button" aria-label="Fullscreen">
+          <FullScreen class="player__svg-icon" />
+        </button>
+      </div>
+
+      <div class="player__tools">
+        <button class="player__icon-button" aria-label="Volume">
+          <Volume2 class="player__lucide-icon" :stroke-width="1.85" />
+        </button>
+        <div class="player__volume">
+          <span class="player__volume-bar"></span>
+        </div>
+        <button class="player__icon-button" aria-label="Playlist">
+          <ListMusic class="player__lucide-icon" :stroke-width="1.85" />
+        </button>
       </div>
     </div>
-
-    <div class="player__right">Hi-Fi</div>
   </footer>
 </template>
 
 <style scoped lang="scss">
 .player {
-  position: fixed;
-  left: 14px;
-  right: 14px;
-  bottom: 8px;
-  z-index: 5;
+  position: relative;
+  width: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.player__shell {
+  position: relative;
+  width: 100%;
   display: grid;
-  grid-template-columns: 112px minmax(0, 320px) 26px;
+  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(180px, 220px);
   align-items: center;
-  gap: 12px;
-  padding: 4px 8px;
-  border-radius: 18px;
-  background: rgba(8, 10, 16, 0.14);
-  backdrop-filter: blur(10px);
-  border: 0;
-  box-shadow: none;
-  max-width: 620px;
-  margin: 0 auto;
+  gap: 20px;
+  min-height: 72px;
+  padding: 14px 88px 14px 20px;
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -32px 60px rgba(6, 10, 30, 0.24),
+    0 18px 44px rgba(5, 2, 18, 0.34);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.player__shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.05)),
+    radial-gradient(circle at 50% 50%, rgba(53, 154, 255, 0.18), transparent 26%);
+}
+
+.player__meta,
+.player__center,
+.player__tools {
+  position: relative;
+  z-index: 1;
 }
 
 .player__meta {
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgba(20, 10, 46, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.player__cover-box {
+  width: 40px;
+  height: 40px;
+  padding: 3px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
 }
 
 .player__cover {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 9px;
   object-fit: cover;
+}
+
+.player__copy {
+  min-width: 0;
 }
 
 .player__name {
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
-.player__artist,
-.player__time,
-.player__right {
+.player__artist {
+  margin-top: 4px;
   color: rgba(255, 255, 255, 0.58);
   font-size: 10px;
+  line-height: 1.2;
 }
 
 .player__center {
-  display: grid;
-  gap: 6px;
-}
-
-.player__controls {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
 }
 
-.player__controls button {
-  width: 22px;
-  height: 22px;
+.player__icon-button,
+.player__play,
+.player__float {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   color: #fff;
-  border-radius: 50%;
-  background: transparent;
   cursor: pointer;
-  font-size: 10px;
+}
+
+.player__icon-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.player__skip {
+  gap: 1px;
+}
+
+.player__skip--prev .player__chevron {
+  transform: scaleX(-1);
+}
+
+.player__chevron,
+.player__play-icon {
+  display: block;
+  background: currentColor;
+}
+
+.player__chevron {
+  width: 7px;
+  height: 10px;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 .player__play {
-  width: 28px !important;
-  height: 28px !important;
-  background: rgba(255, 255, 255, 0.14) !important;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f45fe6, #bb46f0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 10px 18px rgba(239, 80, 222, 0.28);
 }
 
-.player__progress {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr) 56px;
+.player__play-icon {
+  width: 10px;
+  height: 12px;
+  margin-left: 2px;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.player__svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.player__lucide-icon {
+  width: 15px;
+  height: 15px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.player__tools {
+  display: flex;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.player__track {
+.player__volume {
+  width: 96px;
   height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
   overflow: hidden;
 }
 
-.player__bar {
+.player__volume-bar {
   display: block;
-  width: 36%;
+  width: 72%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #ff5cc8, #ff9c66);
+  background: linear-gradient(90deg, #ff76d1, #f04dff);
+  box-shadow: 0 0 10px rgba(255, 107, 211, 0.26);
 }
-
-.player__right {
-  text-align: right;
-  font-size: 9px;
-}
-
 @media (max-width: 960px) {
-  .player {
-    left: 10px;
-    right: 10px;
+  .player__shell {
     grid-template-columns: 1fr;
-    max-width: none;
+    justify-items: stretch;
+    gap: 12px;
+    padding: 14px 74px 14px 14px;
+  }
+
+  .player__center {
+    justify-content: center;
+  }
+
+  .player__tools {
+    justify-content: center;
+  }
+
+  .player__float {
+    right: 14px;
+    top: 18px;
+    transform: none;
+    width: 52px;
+    height: 52px;
   }
 }
 </style>

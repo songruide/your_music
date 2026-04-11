@@ -16,9 +16,9 @@
   height: 28px;
   padding: 0 11px;
   color: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(198, 187, 255, 0.12);
   border-radius: 11px;
-  background: rgba(12, 15, 24, 0.42);
+  background: rgba(40, 28, 96, 0.46);
   backdrop-filter: blur(14px);
   cursor: pointer;
   transition: 0.25s ease;
@@ -27,6 +27,6 @@
 
 .top-action__btn:hover {
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
 }
 </style>

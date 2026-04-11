@@ -87,7 +87,7 @@ const sideImages = [
 .hero {
   display: grid;
   grid-template-columns: 324px 286px;
-  gap: 34px;
+  gap: 150px;
   align-items: start;
   width: min(644px, 100%);
 }

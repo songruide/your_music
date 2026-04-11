@@ -2,6 +2,20 @@
 :root {
   font-family: 'Poppins', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color-scheme: dark;
+  --app-bg-outer:
+    radial-gradient(circle at left center, rgba(233, 92, 255, 0.56), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(52, 137, 255, 0.34), transparent 28%),
+    linear-gradient(135deg, #1a0d63 0%, #16185a 42%, #101547 100%);
+  --app-panel-bg:
+    radial-gradient(circle at 48% 84%, rgba(80, 176, 255, 0.32), transparent 22%),
+    radial-gradient(circle at 12% 50%, rgba(226, 88, 255, 0.28), transparent 16%),
+    linear-gradient(135deg, rgba(82, 18, 150, 0.94) 0%, rgba(52, 20, 126, 0.97) 28%, rgba(29, 34, 111, 0.98) 58%, rgba(16, 23, 78, 0.99) 100%);
+  --app-surface:
+    linear-gradient(180deg, rgba(98, 30, 170, 0.96), rgba(56, 12, 118, 0.98));
+  --app-player:
+    radial-gradient(circle at 50% 100%, rgba(55, 141, 255, 0.24), transparent 26%),
+    linear-gradient(90deg, rgba(63, 14, 125, 0.95) 0%, rgba(28, 47, 138, 0.94) 52%, rgba(15, 24, 87, 0.98) 100%);
+  --app-border: rgba(198, 187, 255, 0.12);
 }
 
 * {
@@ -16,7 +30,7 @@ body,
 }
 
 body {
-  background: #05070b;
+  background: var(--app-bg-outer);
   color: #fff;
 }
 
