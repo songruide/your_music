@@ -34,37 +34,40 @@ const menus = [
 <style scoped lang="scss">
 .menu {
   position: sticky;
-  top: 20px;
-  min-height: calc(100vh - 156px);
-  padding: 16px 12px;
+  top: 28px;
+  min-height: calc(100vh - 132px);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  border-radius: 28px;
-  background: rgba(8, 10, 18, 0.72);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  border: 0;
 }
 
 .menu__brand {
-  margin-bottom: 24px;
-  font-size: 28px;
+  margin-bottom: 22px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.04em;
+  line-height: 1;
+  color: #fff;
 }
 
 .menu__brand span {
-  padding: 2px 10px;
-  font-size: 18px;
- color: #111;
-   background: #fff;
-    border-radius: 12px;
-  
+  margin-left: 2px;
+  padding: 4px 7px;
+  display: inline-block;
+  font-size: 11px;
+  color: #111;
+  background: #fff;
+  border-radius: 10px;
 }
 
 .menu__group,
 .menu__bottom {
   display: grid;
-  gap: 8px;
+  gap: 3px;
 }
 
 .menu__bottom {
@@ -74,10 +77,12 @@ const menus = [
 .menu__item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  color: rgba(255, 255, 255, 0.7);
-  border-radius: 16px;
+  gap: 8px;
+  min-height: 32px;
+  padding: 7px 8px;
+  color: rgba(255, 255, 255, 0.66);
+  border-radius: 11px;
+  font-size: 11px;
   transition: 0.25s ease;
 }
 
@@ -88,7 +93,7 @@ const menus = [
 }
 
 .menu__icon {
-  width: 18px;
-  height: 18px;
+  width: 12px;
+  height: 12px;
 }
 </style>

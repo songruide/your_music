@@ -5,33 +5,26 @@ import PlayerBar from '@/components/PlayerBar.vue'
 </script>
 
 <template>
-  <div class="layout"><!-- //这是最外层容器
-后面 grid 就是加在它身上的
-它决定“左边菜单 + 右边内容”怎么分列 -->
-   
-    <div class="layout__aurora"> <!-- //这是背景彩色光带层
-它不是 grid 主要内容，只是铺在最底下做氛围这是背景彩色光带层
-它不是 grid 主要内容，只是铺在最底下做氛围 -->
+  <div class="layout">
+    <div class="layout__aurora">
       <span class="light light--pink"></span>
       <span class="light light--cyan"></span>
       <span class="light light--violet"></span>
       <span class="light light--blue"></span>
     </div>
 
-    <aside class="layout__aside"><!-- //这是左边菜单 它会自动占第一列-->
+    <aside class="layout__aside">
       <SideMenu />
     </aside>
 
-    <section class="layout__main"><!-- //这是右边内容,在 grid 里，它会自动占第二列
-右边内部不是 grid，这里是 flex 纵向排布
- -->
+    <section class="layout__main">
       <TopAction />
       <div class="layout__view">
         <RouterView />
       </div>
     </section>
 
-    <PlayerBar /><!-- //这是播放器栏,它是 fixed 固定定位，不参与这层 grid -->
+    <PlayerBar />
   </div>
 </template>
 
@@ -39,10 +32,10 @@ import PlayerBar from '@/components/PlayerBar.vue'
 .layout {
   position: relative;
   min-height: 100vh;
-  padding: 20px 40px 132px 32px;
+  padding: 26px 34px 74px 20px;
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 40px;
+  grid-template-columns: 106px minmax(0, 1fr);
+  gap: 64px;
   overflow: hidden;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 28%),
@@ -50,38 +43,39 @@ import PlayerBar from '@/components/PlayerBar.vue'
 }
 
 .layout__aurora {
-  position: absolute;
-  inset: 0;
+   position: absolute;
+  inset: -8%;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .light {
   position: absolute;
   top: -10%;
   bottom: -10%;
-  width: 220px;
+  width: 248px;
   border-radius: 999px;
-  filter: blur(110px);
-  opacity: 0.36;
+  filter: blur(136px);
+  opacity: 0.27;
 }
 
 .light--pink {
-  left: 16%;
+  left: 23%;
   background: linear-gradient(180deg, rgba(255, 84, 160, 0), rgba(255, 84, 160, 0.95), rgba(255, 84, 160, 0));
 }
 
 .light--cyan {
-  left: 50%;
+  left: 56%;
   background: linear-gradient(180deg, rgba(0, 218, 255, 0), rgba(0, 218, 255, 0.8), rgba(0, 218, 255, 0));
 }
 
 .light--violet {
-  right: 6%;
+  right: 2%;
   background: linear-gradient(180deg, rgba(137, 92, 255, 0), rgba(137, 92, 255, 0.82), rgba(137, 92, 255, 0));
 }
 
 .light--blue {
-  right: 22%;
+  right: 18%;
   background: linear-gradient(180deg, rgba(46, 131, 255, 0), rgba(46, 131, 255, 0.75), rgba(46, 131, 255, 0));
 }
 
@@ -94,16 +88,26 @@ import PlayerBar from '@/components/PlayerBar.vue'
 .layout__main {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 14px;
   min-width: 0;
-   width: min(1120px, 100%);
-  justify-self: start;
+  width: min(760px, 100%);
+  justify-self: center;
+  padding-top: 2px;
+}
+
+.layout__view {
+  width: 100%;
 }
 
 @media (max-width: 960px) {
   .layout {
     grid-template-columns: 1fr;
-    padding: 16px 16px 120px;
+    gap: 22px;
+    padding: 18px 16px 84px;
+  }
+
+  .layout__main {
+    width: 100%;
   }
 }
 </style>

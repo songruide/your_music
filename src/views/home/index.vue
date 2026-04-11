@@ -20,10 +20,10 @@ const sideImages = [
     <div class="home__head">Home</div>
 
     <div class="hero">
-      <GlassCard class="hero__content" padding="34px"><!-- //这是左边内容 -->
+      <GlassCard class="hero__content" padding="34px">
         <div>
           <div class="hero__eyebrow">Theme Week</div>
-          <h1 class="hero__title"><!-- //这是大标题 -->
+          <h1 class="hero__title">
             Theme <br />
             <span>Week</span> <br />
             Animation <br />
@@ -34,19 +34,19 @@ const sideImages = [
           </p>
         </div>
 
-        <div class="hero__actions"><!-- //这是操作按钮区域 -->
+        <div class="hero__actions">
           <button class="hero__btn hero__btn--primary">View album</button>
           <button class="hero__btn hero__btn--ghost">View detail</button>
         </div>
 
-        <div class="hero__avatars"><!-- //这是头像区域 -->
+        <div class="hero__avatars">
           <img v-for="item in avatars" :key="item" :src="item" alt="" />
         </div>
       </GlassCard>
 
-      <div class="hero__visual"><!-- //这是右边视觉区域 -->
-        <GlassCard class="hero__profile" padding="18px"><!-- //这是右边上半部分的个人信息卡片 -->
-          <div class="profile"><!-- //这是个人信息区域 -->
+      <div class="hero__visual">
+        <GlassCard class="hero__profile" padding="14px">
+          <div class="profile">
             <img class="profile__avatar" src="https://picsum.photos/seed/u1/88/88" alt="" />
             <div>
               <div class="profile__name">Xu</div>
@@ -55,7 +55,7 @@ const sideImages = [
           </div>
         </GlassCard>
 
-        <div class="hero__gallery"><!-- //这是右边下半部分的图集 -->
+        <div class="hero__gallery">
           <GlassCard class="poster" padding="0">
             <img :src="sideImages[0]" alt="" />
           </GlassCard>
@@ -75,28 +75,33 @@ const sideImages = [
 .home {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 10px;
 }
 
 .home__head {
-  font-size: 20px;
+  font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.76);
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) 420px;
+  grid-template-columns: 324px 286px;
   gap: 34px;
   align-items: start;
-  width: min(980px, 100%);
+  width: min(644px, 100%);
 }
 
 .hero__content {
-    min-height: 0;
+  min-height: 0;
   display: grid;
   align-content: center;
-  gap: 24px;
+  gap: 18px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 .hero__eyebrow {
@@ -109,8 +114,9 @@ const sideImages = [
 
 .hero__title {
   margin: 0;
-  font-size: clamp(42px, 5.6vw, 72px);
-  line-height: 0.92;
+  color: #fff;
+  font-size: clamp(34px, 4.4vw, 62px);
+  line-height: 0.9;
   letter-spacing: -0.05em;
 }
 
@@ -121,23 +127,25 @@ const sideImages = [
 }
 
 .hero__desc {
-  max-width: 560px;
-  margin-top: 18px;
-  color: rgba(233, 239, 255, 0.72);
-  line-height: 1.8;
+  max-width: 308px;
+  margin-top: 6px;
+  color: rgba(233, 239, 255, 0.62);
+  font-size: 11px;
+  line-height: 1.7;
 }
 
 .hero__actions {
   display: flex;
-  gap: 14px;
+  gap: 10px;
 }
 
 .hero__btn {
-  height: 46px;
-  padding: 0 24px;
+  height: 34px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 0;
   cursor: pointer;
+  font-size: 11px;
 }
 
 .hero__btn--primary {
@@ -153,58 +161,74 @@ const sideImages = [
 
 .hero__avatars {
   display: flex;
-  gap: 12px;
+  gap: 9px;
 }
 
 .hero__avatars img {
-  width: 68px;
-  height: 68px;
-  border-radius: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   object-fit: cover;
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.24);
 }
 
 .hero__visual {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+
+.hero__profile {
+  width: 218px;
+  margin-left: auto;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 44px rgba(0, 0, 0, 0.34) !important;
 }
 
 .profile {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .profile__avatar {
-  width: 60px;
-  height: 60px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
 }
 
 .profile__name {
+  color: #fff;
+  font-size: 12px;
   font-weight: 700;
 }
 
 .profile__intro {
-  margin-top: 4px;
-  color: rgba(255, 255, 255, 0.56);
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
 }
 
 .hero__gallery {
   display: grid;
-  grid-template-columns: 112px 1fr;
-  grid-template-rows: 128px 128px;
-  gap: 14px;
+  grid-template-columns: 112px 146px;
+  grid-template-rows: 108px 108px;
+  gap: 12px;
 }
 
 .poster {
   overflow: hidden;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36) !important;
 }
 
 .poster img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 28px;
+  border-radius: 24px;
 }
 
 .poster--large {
