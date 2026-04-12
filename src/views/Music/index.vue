@@ -1,8 +1,28 @@
 <script setup lang="ts">
-const queue = [
-  { title: 'Theme Week', detail: 'Featured playlist / 12 tracks' },
-  { title: 'Aurora Mix', detail: 'Ambient motion / 36 min' },
-  { title: 'Late Night Loop', detail: 'UI showcase / 9 tracks' },
+import MusicCard from '@/components/MusicCard.vue'
+
+const musicCardExamples = [
+  {
+    title: 'Theme Week',
+    subtitle: 'Featured Playlist',
+    badge: 'Demo',
+    tone: 'pink' as const,
+    description: '最基础的用法，展示标题、副标题和一个简单标签。',
+  },
+  {
+    title: 'Aurora Mix',
+    subtitle: 'Ambient Collection',
+    badge: 'Glow',
+    tone: 'blue' as const,
+    description: '同一个组件可以切不同封面色调，用来放歌单、专辑都合适。',
+  },
+  {
+    title: 'Late Night Loop',
+    subtitle: 'UI Showcase',
+    badge: 'Loop',
+    tone: 'violet' as const,
+    description: '如果你有一句补充说明，也可以直接放在卡片下面一起展示。',
+  },
 ]
 </script>
 
@@ -49,14 +69,28 @@ const queue = [
         </div>
       </div>
 
-      <section class="music-panel__queue">
-        <article v-for="item in queue" :key="item.title" class="queue-card">
-          <div class="queue-card__cover"></div>
+      <section class="music-panel__example">
+        <div class="music-panel__section-head">
           <div>
-            <h4>{{ item.title }}</h4>
-            <p>{{ item.detail }}</p>
+            <span class="music-panel__eyebrow">Component Demo</span>
+            <h3>MusicCard 示例</h3>
           </div>
-        </article>
+          <p>
+            这里直接把 `MusicCard` 组件摆出来展示。现在它支持标题、副标题、标签和不同封面色调，适合做歌单、专辑或推荐卡片。
+          </p>
+        </div>
+
+        <div class="music-panel__queue">
+          <MusicCard
+            v-for="item in musicCardExamples"
+            :key="item.title"
+            :title="item.title"
+            :subtitle="item.subtitle"
+            :badge="item.badge"
+            :description="item.description"
+            :tone="item.tone"
+          />
+        </div>
       </section>
     </article>
   </section>
@@ -222,34 +256,29 @@ const queue = [
   gap: 18px;
 }
 
-.queue-card {
+.music-panel__example {
+  margin-top: 40px;
+}
+
+.music-panel__section-head {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 18px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: space-between;
+  gap: 24px;
+  align-items: start;
 }
 
-.queue-card__cover {
-  width: 64px;
-  height: 64px;
-  flex: none;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #ff69cf, #4f8dff);
-}
-
-.queue-card h4 {
+.music-panel__section-head h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
 }
 
-.queue-card p {
-  margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-  line-height: 1.7;
+.music-panel__section-head p {
+  max-width: 420px;
+  margin: 8px 0 0;
+  color: rgba(233, 239, 255, 0.64);
+  font-size: 13px;
+  line-height: 1.8;
 }
 
 @media (max-width: 960px) {
@@ -261,7 +290,8 @@ const queue = [
   .music-panel__header,
   .music-panel__hero,
   .music-panel__queue,
-  .music-panel__stats {
+  .music-panel__stats,
+  .music-panel__section-head {
     grid-template-columns: 1fr;
   }
 
@@ -269,7 +299,12 @@ const queue = [
     display: grid;
   }
 
+  .music-panel__section-head {
+    display: grid;
+  }
+
   .music-panel__header p,
+  .music-panel__section-head p,
   .music-panel__focus,
   .music-panel__focus p {
     max-width: none;

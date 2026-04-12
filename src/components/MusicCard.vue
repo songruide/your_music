@@ -28,7 +28,6 @@ withDefaults(
   gap: 14px;
   padding: 14px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .music-card__cover {

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev:server": "node --watch src/server/index.js"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.4",
@@ -17,6 +18,7 @@
     "@element-plus/icons-vue": "^2.3.2",
     "@iconify/vue": "^5.0.0",
     "@vueuse/core": "^14.2.1",
+    "express": "^5.2.1",
     "lucide-vue-next": "^1.0.0",
     "pinia": "^3.0.4",
     "sass": "^1.97.2",

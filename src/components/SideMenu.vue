@@ -127,10 +127,9 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
     var(--app-surface);
   border: 1px solid var(--app-border);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -24px 50px rgba(16, 8, 62, 0.3),
-    0 18px 40px rgba(10, 4, 36, 0.28);
-  backdrop-filter: blur(18px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -18px 34px rgba(16, 8, 62, 0.2),
+    0 12px 24px rgba(10, 4, 36, 0.18);
 }
 
 .menu__section + .menu__section {

@@ -70,10 +70,9 @@ import { ListMusic, Volume2 } from 'lucide-vue-next'
     linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -32px 60px rgba(6, 10, 30, 0.24),
-    0 18px 44px rgba(5, 2, 18, 0.34);
-  backdrop-filter: blur(18px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -20px 36px rgba(6, 10, 30, 0.18),
+    0 12px 24px rgba(5, 2, 18, 0.2);
   pointer-events: auto;
 }
 
