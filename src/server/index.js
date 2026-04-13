@@ -192,7 +192,7 @@ app.get('/api/player/song-url', async (req, res) => {
         id,
         url: song.url,
         level: song.level ?? level,
-        expiresTime: song.time,
+        expiresIn: song.expi,
       }),
     )
   } catch (error) {

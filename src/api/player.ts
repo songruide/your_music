@@ -4,7 +4,7 @@ export interface SongPlaybackSource {
   id: string
   url: string
   level?: string
-  expiresTime?: number
+  expiresIn?: number
 }
 
 export function getSongPlaybackSource(id: string, level = 'standard') {

@@ -2,11 +2,12 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { FullScreen } from '@element-plus/icons-vue'
-import { ListMusic, Volume2 } from 'lucide-vue-next'
+import { ListMusic, Volume2, VolumeX } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 
 const playerStore = usePlayerStore()
 const {
+  currentIndex,
   currentTime,
   currentTrack,
   durationLabel,
@@ -14,10 +15,20 @@ const {
   hasNext,
   hasPrevious,
   isLoading,
+  isMuted,
   isPlaying,
   progressPercent,
-  volume,
+  queue,
+  volumePercent,
 } = storeToRefs(playerStore)
+
+const queueText = computed(() => {
+  if (queue.value.length <= 1 || currentIndex.value < 0) {
+    return ''
+  }
+
+  return `队列 ${currentIndex.value + 1}/${queue.value.length}`
+})
 
 const statusText = computed(() => {
   if (error.value) {
@@ -29,11 +40,13 @@ const statusText = computed(() => {
   }
 
   if (currentTrack.value) {
-    return '已接入真实音频播放，可直接切换上一首和下一首'
+    return queueText.value ? `${queueText.value}，刷新后会记住播放位置` : '刷新后会记住播放位置'
   }
 
   return '点击首页热门单曲开始播放'
 })
+
+const volumeButtonLabel = computed(() => (isMuted.value || volumePercent.value === 0 ? '取消静音' : '静音'))
 
 function handleProgressInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -62,6 +75,7 @@ function handleVolumeInput(event: Event) {
         <div class="player__copy">
           <div class="player__name">{{ currentTrack?.title ?? '点击一首歌开始播放' }}</div>
           <div class="player__artist">{{ currentTrack?.artist ?? '首页热门单曲已接入播放器' }}</div>
+          <div v-if="queueText" class="player__queue">{{ queueText }}</div>
         </div>
       </div>
 
@@ -123,17 +137,18 @@ function handleVolumeInput(event: Event) {
       </div>
 
       <div class="player__tools">
-        <button class="player__icon-button" aria-label="Volume">
-          <Volume2 class="player__lucide-icon" :stroke-width="1.85" />
+        <button class="player__icon-button" :aria-label="volumeButtonLabel" @click="playerStore.toggleMute()">
+          <VolumeX v-if="isMuted || volumePercent === 0" class="player__lucide-icon" :stroke-width="1.85" />
+          <Volume2 v-else class="player__lucide-icon" :stroke-width="1.85" />
         </button>
         <input
           class="player__range player__range--volume"
-          :style="{ '--player-progress': `${Math.round(volume * 100)}%` }"
+          :style="{ '--player-progress': `${volumePercent}%` }"
           type="range"
           min="0"
           max="100"
           step="1"
-          :value="Math.round(volume * 100)"
+          :value="volumePercent"
           @input="handleVolumeInput"
         />
         <button class="player__icon-button" aria-label="Playlist">
@@ -240,6 +255,13 @@ function handleVolumeInput(event: Event) {
 .player__artist {
   margin-top: 4px;
   color: rgba(255, 255, 255, 0.58);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.player__queue {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.48);
   font-size: 10px;
   line-height: 1.2;
 }
