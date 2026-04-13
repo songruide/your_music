@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { FullScreen } from '@element-plus/icons-vue'
 import { ListMusic, Volume2 } from 'lucide-vue-next'
+import { usePlayerStore } from '@/stores/player'
+
+const playerStore = usePlayerStore()
+const { currentTrack, isPlaying } = storeToRefs(playerStore)
 </script>
 
 <template>
@@ -8,11 +13,17 @@ import { ListMusic, Volume2 } from 'lucide-vue-next'
     <div class="player__shell">
       <div class="player__meta">
         <div class="player__cover-box">
-          <img class="player__cover" src="https://picsum.photos/seed/album/84/84" alt="cover" />
+          <img
+            v-if="currentTrack?.coverUrl"
+            class="player__cover"
+            :src="currentTrack.coverUrl"
+            :alt="currentTrack.title"
+          />
+          <div v-else class="player__cover player__cover--placeholder" aria-hidden="true"></div>
         </div>
         <div class="player__copy">
-          <div class="player__name">未知歌曲</div>
-          <div class="player__artist">未加载音频</div>
+          <div class="player__name">{{ currentTrack?.title ?? '点击一首歌开始播放' }}</div>
+          <div class="player__artist">{{ currentTrack?.artist ?? '首页热门单曲已接入播放器' }}</div>
         </div>
       </div>
 
@@ -21,8 +32,17 @@ import { ListMusic, Volume2 } from 'lucide-vue-next'
           <span class="player__chevron"></span>
           <span class="player__chevron"></span>
         </button>
-        <button class="player__play" aria-label="Play">
-          <span class="player__play-icon"></span>
+        <button
+          class="player__play"
+          :aria-label="isPlaying ? 'Pause' : 'Play'"
+          :disabled="!currentTrack"
+          @click="playerStore.togglePlay()"
+        >
+          <span v-if="isPlaying" class="player__pause-icon" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </span>
+          <span v-else class="player__play-icon" aria-hidden="true"></span>
         </button>
         <button class="player__icon-button player__skip player__skip--next" aria-label="Next track">
           <span class="player__chevron"></span>
@@ -121,6 +141,12 @@ import { ListMusic, Volume2 } from 'lucide-vue-next'
   object-fit: cover;
 }
 
+.player__cover--placeholder {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+    linear-gradient(135deg, rgba(255, 118, 209, 0.62), rgba(79, 141, 255, 0.68));
+}
+
 .player__copy {
   min-width: 0;
 }
@@ -195,11 +221,30 @@ import { ListMusic, Volume2 } from 'lucide-vue-next'
     0 10px 18px rgba(239, 80, 222, 0.28);
 }
 
+.player__play:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
 .player__play-icon {
   width: 10px;
   height: 12px;
   margin-left: 2px;
   clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.player__pause-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.player__pause-icon span {
+  width: 3px;
+  height: 12px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .player__svg-icon {
