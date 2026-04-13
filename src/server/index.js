@@ -37,6 +37,9 @@ const artists = [
 const songs = [
 
 ]
+
+const DEFAULT_SONG_LEVEL = process.env.NCM_SONG_LEVEL ?? 'standard'
+
 function ok(data) {
   return {
     code: 200,
@@ -149,6 +152,49 @@ app.get('/api/home/hot-songs', async (req, res) => {
     }))
 
     res.json(ok(data))
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      data: null,
+      message: error instanceof Error ? error.message : 'server error',
+    })
+  }
+})
+
+app.get('/api/player/song-url', async (req, res) => {
+  try {
+    const id = String(req.query.id ?? '').trim()
+
+    if (!id) {
+      res.status(400).json({
+        code: 400,
+        data: null,
+        message: 'song id is required',
+      })
+      return
+    }
+
+    const level = String(req.query.level ?? DEFAULT_SONG_LEVEL)
+    const payload = await fetchNcm('/song/url/v1', { id, level })
+    const song = payload.data?.[0]
+
+    if (!song?.url) {
+      res.status(404).json({
+        code: 404,
+        data: null,
+        message: '当前歌曲暂无可用音源',
+      })
+      return
+    }
+
+    res.json(
+      ok({
+        id,
+        url: song.url,
+        level: song.level ?? level,
+        expiresTime: song.time,
+      }),
+    )
   } catch (error) {
     res.status(500).json({
       code: 500,

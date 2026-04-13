@@ -61,7 +61,19 @@ function handleTrackSelect(song: HomeSong) {
     return
   }
 
-  playerStore.playTrack(buildPlayerTrack(song))
+  if (currentTrack.value?.id === song.id) {
+    void playerStore.togglePlay()
+    return
+  }
+
+  const queue = props.hotSongs.filter((item) => item.playable !== false).map(buildPlayerTrack)
+  const startIndex = queue.findIndex((item) => item.id === song.id)
+
+  if (startIndex < 0) {
+    return
+  }
+
+  void playerStore.playQueue(queue, startIndex)
 }
 function buildPlayerTrack(song: HomeSong): PlayerTrack {
   return {
@@ -70,6 +82,7 @@ function buildPlayerTrack(song: HomeSong): PlayerTrack {
     artist: song.artistNames.join(' / ') || '未知歌手',
     coverUrl: song.coverUrl,
     duration: formatDuration(song.duration),
+    durationMs: song.duration,
   }
 }
 

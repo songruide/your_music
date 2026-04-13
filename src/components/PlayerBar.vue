@@ -1,11 +1,49 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { FullScreen } from '@element-plus/icons-vue'
 import { ListMusic, Volume2 } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 
 const playerStore = usePlayerStore()
-const { currentTrack, isPlaying } = storeToRefs(playerStore)
+const {
+  currentTime,
+  currentTrack,
+  durationLabel,
+  error,
+  hasNext,
+  hasPrevious,
+  isLoading,
+  isPlaying,
+  progressPercent,
+  volume,
+} = storeToRefs(playerStore)
+
+const statusText = computed(() => {
+  if (error.value) {
+    return error.value
+  }
+
+  if (isLoading.value) {
+    return '正在加载音源...'
+  }
+
+  if (currentTrack.value) {
+    return '已接入真实音频播放，可直接切换上一首和下一首'
+  }
+
+  return '点击首页热门单曲开始播放'
+})
+
+function handleProgressInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  playerStore.seekToPercent(Number(input.value))
+}
+
+function handleVolumeInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  playerStore.setVolume(Number(input.value) / 100)
+}
 </script>
 
 <template>
@@ -28,40 +66,81 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
       </div>
 
       <div class="player__center">
-        <button class="player__icon-button player__skip player__skip--prev" aria-label="Previous track">
-          <span class="player__chevron"></span>
-          <span class="player__chevron"></span>
-        </button>
-        <button
-          class="player__play"
-          :aria-label="isPlaying ? 'Pause' : 'Play'"
-          :disabled="!currentTrack"
-          @click="playerStore.togglePlay()"
-        >
-          <span v-if="isPlaying" class="player__pause-icon" aria-hidden="true">
-            <span></span>
-            <span></span>
-          </span>
-          <span v-else class="player__play-icon" aria-hidden="true"></span>
-        </button>
-        <button class="player__icon-button player__skip player__skip--next" aria-label="Next track">
-          <span class="player__chevron"></span>
-          <span class="player__chevron"></span>
-        </button>
-        <button class="player__icon-button" aria-label="Fullscreen">
-          <FullScreen class="player__svg-icon" />
-        </button>
+        <div class="player__transport">
+          <button
+            class="player__icon-button player__skip player__skip--prev"
+            aria-label="Previous track"
+            :disabled="!hasPrevious"
+            @click="playerStore.playPreviousTrack()"
+          >
+            <span class="player__chevron"></span>
+            <span class="player__chevron"></span>
+          </button>
+          <button
+            class="player__play"
+            :aria-label="isPlaying ? 'Pause' : 'Play'"
+            :disabled="!currentTrack"
+            :class="{ 'player__play--loading': isLoading }"
+            @click="playerStore.togglePlay()"
+          >
+            <span v-if="isLoading" class="player__loader" aria-hidden="true"></span>
+            <span v-else-if="isPlaying" class="player__pause-icon" aria-hidden="true">
+              <span></span>
+              <span></span>
+            </span>
+            <span v-else class="player__play-icon" aria-hidden="true"></span>
+          </button>
+          <button
+            class="player__icon-button player__skip player__skip--next"
+            aria-label="Next track"
+            :disabled="!hasNext"
+            @click="playerStore.playNextTrack()"
+          >
+            <span class="player__chevron"></span>
+            <span class="player__chevron"></span>
+          </button>
+        </div>
+
+        <div class="player__timeline">
+          <span class="player__time">{{ currentTime }}</span>
+          <input
+            class="player__range player__range--progress"
+            :style="{ '--player-progress': `${progressPercent}%` }"
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            :value="progressPercent"
+            :disabled="!currentTrack"
+            @input="handleProgressInput"
+          />
+          <span class="player__time">{{ durationLabel }}</span>
+        </div>
+
+        <p class="player__status" :class="{ 'player__status--error': error }">
+          {{ statusText }}
+        </p>
       </div>
 
       <div class="player__tools">
         <button class="player__icon-button" aria-label="Volume">
           <Volume2 class="player__lucide-icon" :stroke-width="1.85" />
         </button>
-        <div class="player__volume">
-          <span class="player__volume-bar"></span>
-        </div>
+        <input
+          class="player__range player__range--volume"
+          :style="{ '--player-progress': `${Math.round(volume * 100)}%` }"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          :value="Math.round(volume * 100)"
+          @input="handleVolumeInput"
+        />
         <button class="player__icon-button" aria-label="Playlist">
           <ListMusic class="player__lucide-icon" :stroke-width="1.85" />
+        </button>
+        <button class="player__icon-button" aria-label="Fullscreen">
+          <FullScreen class="player__svg-icon" />
         </button>
       </div>
     </div>
@@ -80,11 +159,11 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
   position: relative;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(220px, 260px);
   align-items: center;
   gap: 20px;
-  min-height: 72px;
-  padding: 14px 88px 14px 20px;
+  min-height: 88px;
+  padding: 16px 20px;
   border-radius: 24px;
   background:
     linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
@@ -126,8 +205,8 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
 }
 
 .player__cover-box {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 3px;
   border-radius: 12px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
@@ -166,15 +245,44 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
 }
 
 .player__center {
+  display: grid;
+  gap: 10px;
+}
+
+.player__transport {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 16px;
 }
 
+.player__timeline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.player__time {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.player__status {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.player__status--error {
+  color: #ffd7e4;
+}
+
 .player__icon-button,
-.player__play,
-.player__float {
+.player__play {
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -185,10 +293,15 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
 }
 
 .player__icon-button {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 999px;
   background: transparent;
+}
+
+.player__icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
 }
 
 .player__skip {
@@ -212,8 +325,8 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
 }
 
 .player__play {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: linear-gradient(180deg, #f45fe6, #bb46f0);
   box-shadow:
@@ -225,6 +338,12 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
   cursor: not-allowed;
   opacity: 0.5;
   box-shadow: none;
+}
+
+.player__play--loading {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 0 0 8px rgba(255, 110, 228, 0.12);
 }
 
 .player__play-icon {
@@ -247,6 +366,61 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
   background: currentColor;
 }
 
+.player__loader {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.34);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.player__tools {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.player__range {
+  --player-progress: 0%;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  background:
+    linear-gradient(90deg, #ff76d1 0%, #f04dff var(--player-progress), rgba(255, 255, 255, 0.16) var(--player-progress), rgba(255, 255, 255, 0.16) 100%);
+}
+
+.player__range:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.player__range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(240, 77, 255, 0.22);
+}
+
+.player__range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(240, 77, 255, 0.22);
+}
+
+.player__range--volume {
+  max-width: 92px;
+}
+
 .player__svg-icon {
   width: 14px;
   height: 14px;
@@ -258,51 +432,37 @@ const { currentTrack, isPlaying } = storeToRefs(playerStore)
   color: rgba(255, 255, 255, 0.9);
 }
 
-.player__tools {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.player__volume {
-  width: 96px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  overflow: hidden;
-}
-
-.player__volume-bar {
-  display: block;
-  width: 72%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #ff76d1, #f04dff);
-  box-shadow: 0 0 10px rgba(255, 107, 211, 0.26);
-}
 @media (max-width: 960px) {
   .player__shell {
     grid-template-columns: 1fr;
     justify-items: stretch;
-    gap: 12px;
-    padding: 14px 74px 14px 14px;
+    gap: 14px;
+    padding: 16px 14px;
   }
 
-  .player__center {
-    justify-content: center;
-  }
-
+  .player__transport,
   .player__tools {
     justify-content: center;
   }
+}
 
-  .player__float {
-    right: 14px;
-    top: 18px;
-    transform: none;
-    width: 52px;
-    height: 52px;
+@media (max-width: 640px) {
+  .player__timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .player__time {
+    display: none;
   }
 }
 </style>
