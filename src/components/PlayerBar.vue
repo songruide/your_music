@@ -10,6 +10,8 @@ const {
   currentIndex,
   currentTime,
   currentTrack,
+  debugEnabled,
+  debugSnapshot,
   durationLabel,
   error,
   hasNext,
@@ -47,6 +49,26 @@ const statusText = computed(() => {
 })
 
 const volumeButtonLabel = computed(() => (isMuted.value || volumePercent.value === 0 ? '取消静音' : '静音'))
+const debugRows = computed(() => [
+  ['trackId', debugSnapshot.value.currentTrackId || '-'],
+  ['sourceMode', debugSnapshot.value.sourceMode || '-'],
+  ['type', debugSnapshot.value.type || '-'],
+  ['level', debugSnapshot.value.level || '-'],
+  ['bitrate', debugSnapshot.value.bitrate ? `${debugSnapshot.value.bitrate} bps` : '-'],
+  ['sampleRate', debugSnapshot.value.sampleRate ? `${debugSnapshot.value.sampleRate} Hz` : '-'],
+  ['playbackRate', String(debugSnapshot.value.playbackRate)],
+  ['readyState', String(debugSnapshot.value.readyState)],
+  ['networkState', String(debugSnapshot.value.networkState)],
+  ['currentTime', `${debugSnapshot.value.currentTimeSeconds}s / ${debugSnapshot.value.durationSeconds}s`],
+  ['streamUrl', debugSnapshot.value.streamUrl || '-'],
+  ['resolvedAudioUrl', debugSnapshot.value.resolvedAudioUrl || '-'],
+  ['audioCurrentSrc', debugSnapshot.value.audioCurrentSrc || '-'],
+  ['directUrl', debugSnapshot.value.directUrl || '-'],
+  [
+    'expiresAt',
+    debugSnapshot.value.expiresAt ? new Date(debugSnapshot.value.expiresAt).toLocaleString() : '-',
+  ],
+])
 
 function handleProgressInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -154,9 +176,25 @@ function handleVolumeInput(event: Event) {
         <button class="player__icon-button" aria-label="Playlist">
           <ListMusic class="player__lucide-icon" :stroke-width="1.85" />
         </button>
+        <button
+          class="player__debug-button"
+          :class="{ 'player__debug-button--active': debugEnabled }"
+          type="button"
+          aria-label="Toggle debug panel"
+          @click="playerStore.toggleDebug()"
+        >
+          DBG
+        </button>
         <button class="player__icon-button" aria-label="Fullscreen">
           <FullScreen class="player__svg-icon" />
         </button>
+      </div>
+
+      <div v-if="debugEnabled" class="player__debug-panel" aria-label="Playback debug info">
+        <div v-for="[label, value] in debugRows" :key="label" class="player__debug-row">
+          <span class="player__debug-label">{{ label }}</span>
+          <span class="player__debug-value">{{ value }}</span>
+        </div>
       </div>
     </div>
   </footer>
@@ -404,6 +442,59 @@ function handleVolumeInput(event: Event) {
   gap: 12px;
 }
 
+.player__debug-button {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.player__debug-button--active {
+  background: rgba(255, 118, 209, 0.16);
+  border-color: rgba(255, 118, 209, 0.34);
+}
+
+.player__debug-panel {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(10, 8, 30, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.player__debug-row {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.player__debug-label,
+.player__debug-value {
+  min-width: 0;
+  font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+}
+
+.player__debug-label {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.player__debug-value {
+  overflow-wrap: anywhere;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .player__range {
   --player-progress: 0%;
   appearance: none;
@@ -485,6 +576,10 @@ function handleVolumeInput(event: Event) {
 
   .player__time {
     display: none;
+  }
+
+  .player__debug-panel {
+    grid-template-columns: 1fr;
   }
 }
 </style>

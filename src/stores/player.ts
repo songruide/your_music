@@ -1,6 +1,16 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { getSongPlaybackSource } from '@/api/player'
+import { getSongPlaybackSource, type SongPlaybackSource } from '@/api/player'
+
+export interface PlayerTrackSourceMeta {
+  bitrate?: number
+  directUrl?: string
+  level?: string
+  sampleRate?: number
+  sourceMode?: string
+  streamUrl?: string
+  type?: string
+}
 
 export interface PlayerTrack {
   id: string
@@ -10,6 +20,7 @@ export interface PlayerTrack {
   duration: string
   durationMs?: number
   audioUrl?: string
+  sourceMeta?: PlayerTrackSourceMeta
   sourceExpiresAt?: number
 }
 
@@ -21,7 +32,21 @@ interface PersistedPlayerState {
   volume: number
 }
 
+interface AudioDiagnostics {
+  currentSrc: string
+  networkState: number
+  playbackRate: number
+  readyState: number
+}
+
+type PitchAwareAudio = HTMLAudioElement & {
+  mozPreservesPitch?: boolean
+  preservesPitch?: boolean
+  webkitPreservesPitch?: boolean
+}
+
 const DEFAULT_VOLUME = 0.72
+const LOCKED_PLAYBACK_RATE = 1
 const PLAYER_STORAGE_KEY = 'your-music-player'
 const PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS = 3
 const SOURCE_REFRESH_BUFFER_MS = 15_000
@@ -79,7 +104,20 @@ function readPersistedState(): PersistedPlayerState | null {
     }
 
     const parsed = JSON.parse(raw) as Partial<PersistedPlayerState>
-    const queue = Array.isArray(parsed.queue) ? parsed.queue.filter(isPlayerTrack).map(cloneTrack) : []
+    const queue = Array.isArray(parsed.queue)
+      ? parsed.queue
+          .filter(isPlayerTrack)
+          .map((track) => {
+            const nextTrack = cloneTrack(track)
+
+            if (!isPreferredAudioUrl(nextTrack.audioUrl)) {
+              delete nextTrack.audioUrl
+              delete nextTrack.sourceExpiresAt
+            }
+
+            return nextTrack
+          })
+      : []
     const volume = typeof parsed.volume === 'number' ? clamp(parsed.volume, 0, 1) : DEFAULT_VOLUME
 
     return {
@@ -98,10 +136,15 @@ function isSourceExpired(expiresAt?: number) {
   return typeof expiresAt === 'number' && Date.now() >= expiresAt - SOURCE_REFRESH_BUFFER_MS
 }
 
+function isPreferredAudioUrl(url?: string) {
+  return typeof url === 'string' && url.startsWith('/api/player/stream?')
+}
+
 export const usePlayerStore = defineStore('player', () => {
   const currentTrack = ref<PlayerTrack | null>(null)
   const currentTimeSeconds = ref(0)
   const durationSeconds = ref(0)
+  const debugEnabled = ref(false)
   const isPlaying = ref(false)
   const isLoading = ref(false)
   const isMuted = ref(false)
@@ -111,6 +154,12 @@ export const usePlayerStore = defineStore('player', () => {
   const currentIndex = ref(-1)
 
   const audio = typeof window !== 'undefined' ? new Audio() : null
+  const audioDiagnostics = ref<AudioDiagnostics>({
+    currentSrc: '',
+    networkState: 0,
+    playbackRate: 1,
+    readyState: 0,
+  })
   const sourceCache = new Map<string, { expiresAt?: number; url: string }>()
   let audioReady = false
   let requestToken = 0
@@ -145,6 +194,24 @@ export const usePlayerStore = defineStore('player', () => {
     () => Boolean(currentTrack.value) && (currentIndex.value > 0 || currentTimeSeconds.value > 0),
   )
   const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < queue.value.length - 1)
+  const debugSnapshot = computed(() => ({
+    audioCurrentSrc: audioDiagnostics.value.currentSrc,
+    bitrate: currentTrack.value?.sourceMeta?.bitrate,
+    currentTimeSeconds: Number(currentTimeSeconds.value.toFixed(2)),
+    currentTrackId: currentTrack.value?.id ?? '',
+    directUrl: currentTrack.value?.sourceMeta?.directUrl ?? '',
+    durationSeconds: Number(durationSeconds.value.toFixed(2)),
+    expiresAt: currentTrack.value?.sourceExpiresAt,
+    level: currentTrack.value?.sourceMeta?.level ?? '',
+    networkState: audioDiagnostics.value.networkState,
+    playbackRate: audioDiagnostics.value.playbackRate,
+    readyState: audioDiagnostics.value.readyState,
+    resolvedAudioUrl: currentTrack.value?.audioUrl ?? '',
+    sampleRate: currentTrack.value?.sourceMeta?.sampleRate,
+    sourceMode: currentTrack.value?.sourceMeta?.sourceMode ?? '',
+    streamUrl: currentTrack.value?.sourceMeta?.streamUrl ?? '',
+    type: currentTrack.value?.sourceMeta?.type ?? '',
+  }))
 
   function applyVolumeState() {
     if (!audio) {
@@ -152,6 +219,54 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     audio.volume = isMuted.value ? 0 : volume.value
+  }
+
+  function applyPlaybackSettings() {
+    if (!audio) {
+      return
+    }
+
+    audio.playbackRate = LOCKED_PLAYBACK_RATE
+    audio.defaultPlaybackRate = LOCKED_PLAYBACK_RATE
+
+    const pitchAwareAudio = audio as PitchAwareAudio
+
+    if ('preservesPitch' in pitchAwareAudio) {
+      pitchAwareAudio.preservesPitch = true
+    }
+
+    if ('mozPreservesPitch' in pitchAwareAudio) {
+      pitchAwareAudio.mozPreservesPitch = true
+    }
+
+    if ('webkitPreservesPitch' in pitchAwareAudio) {
+      pitchAwareAudio.webkitPreservesPitch = true
+    }
+  }
+
+  function syncAudioDiagnostics() {
+    if (!audio) {
+      return
+    }
+
+    audioDiagnostics.value = {
+      currentSrc: audio.currentSrc,
+      networkState: audio.networkState,
+      playbackRate: audio.playbackRate,
+      readyState: audio.readyState,
+    }
+  }
+
+  function assignSourceMeta(track: PlayerTrack, source: SongPlaybackSource) {
+    track.sourceMeta = {
+      bitrate: source.bitrate,
+      directUrl: source.url,
+      level: source.level,
+      sampleRate: source.sampleRate,
+      sourceMode: source.sourceMode,
+      streamUrl: source.streamUrl,
+      type: source.type,
+    }
   }
 
   function persistState(force = false) {
@@ -227,15 +342,18 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     audio.preload = 'metadata'
+    applyPlaybackSettings()
     applyVolumeState()
 
     audio.addEventListener('loadstart', () => {
       isLoading.value = true
       error.value = ''
+      syncAudioDiagnostics()
     })
 
     audio.addEventListener('timeupdate', () => {
       currentTimeSeconds.value = audio.currentTime
+      syncAudioDiagnostics()
 
       if (Math.floor(audio.currentTime) >= lastPersistedSecond + 2) {
         persistState()
@@ -243,38 +361,55 @@ export const usePlayerStore = defineStore('player', () => {
     })
 
     audio.addEventListener('loadedmetadata', () => {
+      applyPlaybackSettings()
       syncDuration()
       restorePendingSeek()
+      syncAudioDiagnostics()
     })
 
     audio.addEventListener('durationchange', syncDuration)
 
     audio.addEventListener('canplay', () => {
       isLoading.value = false
+      applyPlaybackSettings()
       syncDuration()
       restorePendingSeek()
+      syncAudioDiagnostics()
     })
 
     audio.addEventListener('playing', () => {
       isLoading.value = false
       isPlaying.value = true
+      applyPlaybackSettings()
       syncDuration()
+      syncAudioDiagnostics()
       persistState(true)
     })
 
     audio.addEventListener('pause', () => {
       isPlaying.value = false
       isLoading.value = false
+      syncAudioDiagnostics()
       persistState(true)
     })
 
     audio.addEventListener('waiting', () => {
       isLoading.value = true
+      syncAudioDiagnostics()
+    })
+
+    audio.addEventListener('ratechange', () => {
+      if (Math.abs(audio.playbackRate - LOCKED_PLAYBACK_RATE) > 0.001) {
+        applyPlaybackSettings()
+      }
+
+      syncAudioDiagnostics()
     })
 
     audio.addEventListener('ended', () => {
       currentTimeSeconds.value = 0
       isPlaying.value = false
+      syncAudioDiagnostics()
       persistState(true)
       void playNextTrack()
     })
@@ -283,6 +418,7 @@ export const usePlayerStore = defineStore('player', () => {
       isLoading.value = false
       isPlaying.value = false
       error.value = '当前歌曲播放失败，请稍后再试'
+      syncAudioDiagnostics()
       persistState(true)
     })
 
@@ -341,16 +477,17 @@ export const usePlayerStore = defineStore('player', () => {
     const source = await getSongPlaybackSource(track.id)
     const expiresAt = source.expiresIn ? Date.now() + source.expiresIn * 1000 : undefined
 
-    track.audioUrl = source.url
+    track.audioUrl = source.streamUrl ?? source.url
+    assignSourceMeta(track, source)
     track.sourceExpiresAt = expiresAt
 
     sourceCache.set(track.id, {
-      url: source.url,
+      url: track.audioUrl,
       expiresAt,
     })
 
     return {
-      url: source.url,
+      url: track.audioUrl,
       expiresAt,
     }
   }
@@ -389,6 +526,8 @@ export const usePlayerStore = defineStore('player', () => {
         audio.src = source.url
       }
 
+      applyPlaybackSettings()
+      syncAudioDiagnostics()
       restorePendingSeek()
       await audio.play()
     } catch (err) {
@@ -550,6 +689,10 @@ export const usePlayerStore = defineStore('player', () => {
     persistState(true)
   }
 
+  function toggleDebug() {
+    debugEnabled.value = !debugEnabled.value
+  }
+
   function restoreState() {
     const persistedState = readPersistedState()
 
@@ -587,6 +730,8 @@ export const usePlayerStore = defineStore('player', () => {
     currentTime,
     currentTimeSeconds,
     currentTrack,
+    debugEnabled,
+    debugSnapshot,
     durationLabel,
     error,
     hasNext,
@@ -603,6 +748,7 @@ export const usePlayerStore = defineStore('player', () => {
     seekToPercent,
     setQueue,
     setVolume,
+    toggleDebug,
     toggleMute,
     togglePlay,
     volume,

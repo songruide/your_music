@@ -1,5 +1,5 @@
-
 import express from "express";
+import { Readable } from "node:stream";
 const app = express();
 const PORT = 3001;
 app.use(express.json());
@@ -39,6 +39,16 @@ const songs = [
 ]
 
 const DEFAULT_SONG_LEVEL = process.env.NCM_SONG_LEVEL ?? 'standard'
+const DEFAULT_BROWSER_BR = Number(process.env.NCM_BROWSER_BR ?? 320000)
+const AUDIO_RESPONSE_HEADERS = [
+  'accept-ranges',
+  'cache-control',
+  'content-length',
+  'content-range',
+  'content-type',
+  'etag',
+  'last-modified',
+]
 
 function ok(data) {
   return {
@@ -55,6 +65,35 @@ function getLimit(value, total) {
   }
 
   return limit
+}
+
+async function resolveSongSource(id, level) {
+  const browserPayload = await fetchNcm('/song/url', {
+    id,
+    br: DEFAULT_BROWSER_BR,
+  })
+  let song = browserPayload.data?.[0]
+  let sourceMode = 'song/url'
+
+  if (!song?.url) {
+    const fallbackPayload = await fetchNcm('/song/url/v1', { id, level })
+    song = fallbackPayload.data?.[0]
+    sourceMode = 'song/url/v1'
+  }
+
+  return {
+    song,
+    sourceMode,
+  }
+}
+
+function buildStreamUrl(id, level) {
+  const params = new URLSearchParams({
+    id,
+    level,
+  })
+
+  return `/api/player/stream?${params.toString()}`
 }
 
 app.get('/api/health', (req, res) => {
@@ -175,8 +214,7 @@ app.get('/api/player/song-url', async (req, res) => {
     }
 
     const level = String(req.query.level ?? DEFAULT_SONG_LEVEL)
-    const payload = await fetchNcm('/song/url/v1', { id, level })
-    const song = payload.data?.[0]
+    const { song, sourceMode } = await resolveSongSource(id, level)
 
     if (!song?.url) {
       res.status(404).json({
@@ -190,11 +228,88 @@ app.get('/api/player/song-url', async (req, res) => {
     res.json(
       ok({
         id,
-        url: song.url,
-        level: song.level ?? level,
+        bitrate: song.br,
         expiresIn: song.expi,
+        level: song.level ?? level,
+        sampleRate: song.sr,
+        sourceMode,
+        streamUrl: buildStreamUrl(id, level),
+        type: song.type,
+        url: song.url,
       }),
     )
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      data: null,
+      message: error instanceof Error ? error.message : 'server error',
+    })
+  }
+})
+
+app.get('/api/player/stream', async (req, res) => {
+  try {
+    const id = String(req.query.id ?? '').trim()
+
+    if (!id) {
+      res.status(400).json({
+        code: 400,
+        data: null,
+        message: 'song id is required',
+      })
+      return
+    }
+
+    const level = String(req.query.level ?? DEFAULT_SONG_LEVEL)
+    const { song } = await resolveSongSource(id, level)
+
+    if (!song?.url) {
+      res.status(404).json({
+        code: 404,
+        data: null,
+        message: '当前歌曲暂无可用音源',
+      })
+      return
+    }
+
+    const upstreamHeaders = new Headers()
+
+    if (req.headers.range) {
+      upstreamHeaders.set('Range', req.headers.range)
+    }
+
+    const upstreamResponse = await fetch(song.url, {
+      headers: upstreamHeaders,
+      redirect: 'follow',
+    })
+
+    if (!upstreamResponse.ok && upstreamResponse.status !== 206) {
+      throw new Error(`Audio stream request failed: ${upstreamResponse.status}`)
+    }
+
+    for (const headerName of AUDIO_RESPONSE_HEADERS) {
+      const headerValue = upstreamResponse.headers.get(headerName)
+
+      if (headerValue) {
+        res.setHeader(headerName, headerValue)
+      }
+    }
+
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Accept-Ranges', upstreamResponse.headers.get('accept-ranges') ?? 'bytes')
+
+    if (!res.getHeader('content-type')) {
+      res.setHeader('Content-Type', song.type === 'mp3' ? 'audio/mpeg' : 'application/octet-stream')
+    }
+
+    res.status(upstreamResponse.status)
+
+    if (!upstreamResponse.body) {
+      res.end()
+      return
+    }
+
+    Readable.fromWeb(upstreamResponse.body).pipe(res)
   } catch (error) {
     res.status(500).json({
       code: 500,
