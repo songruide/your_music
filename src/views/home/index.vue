@@ -3,7 +3,6 @@
     <div v-if="loading" class="home__state home__state--loading">加载中...</div>
     <div v-else-if="error" class="home__state home__state--error">{{ error }}</div>
     <template v-else>
-        <HomeSearchBar />
         <BannerList :banners="homeData.banners" />
         <RecomendSongs :recommendedPlaylists="homeData.recommendedPlaylists" />
         <Hotsinger :hotArtists="homeData.hotArtists" />
@@ -17,7 +16,6 @@
 import { onMounted, ref } from 'vue'
 import { getHomePage, type HomePageData,} from '@/api/home'
 import BannerList from './components/BannerList.vue'
-import HomeSearchBar from './components/HomeSearchBar.vue'
 import RecomendSongs from './components/RecomendSongs.vue'
 import Hotsinger from './components/Hotsinger.vue'
 import HotSongs from './components/HotSongs.vue'

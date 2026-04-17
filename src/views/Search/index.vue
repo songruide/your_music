@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ChevronLeft,
   ChevronRight,
+  Clapperboard,
+  Disc3,
   Download,
-  Film,
   Info,
-  ListMusic,
+  LibraryBig,
   Play,
-  Search,
 } from 'lucide-vue-next'
 import {
   searchMvs,
@@ -26,13 +26,6 @@ import {
 } from '@/api/search'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
-
-interface SearchTabOption {
-  value: SearchCategory
-  label: string
-  noun: string
-  icon: Component
-}
 
 type SearchResultState =
   | {
@@ -54,37 +47,50 @@ type SearchResultState =
       items: SearchMv[]
     }
 
+interface SearchTypeOption {
+  value: SearchCategory
+  label: string
+}
+
 const DEFAULT_SEARCH_TYPE: SearchCategory = 'song'
+const SEARCH_TYPE_OPTIONS: SearchTypeOption[] = [
+  { value: 'song', label: '单曲' },
+  { value: 'playlist', label: '歌单' },
+  { value: 'mv', label: 'MV' },
+]
 const SEARCH_PAGE_SIZES: Record<SearchCategory, number> = {
   song: 40,
   playlist: 18,
   mv: 18,
 }
-const SEARCH_TYPE_OPTIONS: SearchTabOption[] = [
-  { value: 'song', label: '单曲', noun: '单曲', icon: Play },
-  { value: 'playlist', label: '歌单', noun: '歌单', icon: ListMusic },
-  { value: 'mv', label: 'MV', noun: 'MV', icon: Film },
-]
+const FALLBACK_COVER_URL =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f35bb4'/%3E%3Cstop offset='1' stop-color='%23508dff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='24' fill='url(%23g)'/%3E%3Ccircle cx='60' cy='44' r='16' fill='rgba(255,255,255,.7)'/%3E%3Crect x='30' y='68' width='60' height='22' rx='11' fill='rgba(255,255,255,.46)'/%3E%3C/svg%3E"
 
 const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
 
-const keywordInput = ref('')
 const loading = ref(false)
 const error = ref('')
 const searchResult = ref<SearchResultState | null>(null)
 let searchRequestToken = 0
 
 const activeType = computed(() => getRouteSearchType())
-const activeTab = computed(
-  () => SEARCH_TYPE_OPTIONS.find((option) => option.value === activeType.value) ?? SEARCH_TYPE_OPTIONS[0],
-)
+const activeTypeLabel = computed(() => {
+  if (activeType.value === 'playlist') {
+    return '歌单'
+  }
+
+  if (activeType.value === 'mv') {
+    return 'MV'
+  }
+
+  return '单曲'
+})
 const hasKeyword = computed(() => Boolean(getRouteKeyword()))
 const currentPage = computed(() => getRoutePage())
 const currentPageSize = computed(() => getPageSize(activeType.value))
-const displayKeyword = computed(() => searchResult.value?.keyword ?? getRouteKeyword())
 const songItems = computed(() => (searchResult.value?.type === 'song' ? searchResult.value.items : []))
 const playlistItems = computed(() =>
   searchResult.value?.type === 'playlist' ? searchResult.value.items : [],
@@ -117,6 +123,7 @@ const hasPreviousPage = computed(() => currentPage.value > 1)
 const hasNextPage = computed(() => currentPage.value < totalPages.value)
 const startIndex = computed(() => (currentPage.value - 1) * currentPageSize.value)
 const formattedTotalCount = computed(() => (searchResult.value?.total ?? 0).toLocaleString())
+const searchKeyword = computed(() => searchResult.value?.keyword ?? getRouteKeyword())
 
 function getPageSize(type: SearchCategory) {
   return SEARCH_PAGE_SIZES[type]
@@ -137,9 +144,11 @@ function getRouteKeyword() {
 function getRouteSearchType(): SearchCategory {
   const queryValue = getNormalizedQueryValue(route.query.type)
 
-  return SEARCH_TYPE_OPTIONS.some((option) => option.value === queryValue)
-    ? (queryValue as SearchCategory)
-    : DEFAULT_SEARCH_TYPE
+  if (queryValue === 'playlist' || queryValue === 'mv' || queryValue === 'song') {
+    return queryValue
+  }
+
+  return DEFAULT_SEARCH_TYPE
 }
 
 function getRoutePage() {
@@ -245,38 +254,6 @@ async function loadSearch(keyword: string, type: SearchCategory, page: number) {
   }
 }
 
-async function submitSearch() {
-  const keyword = keywordInput.value.trim()
-  const type = activeType.value
-
-  if (!keyword) {
-    error.value = '先输入关键词，再开始搜索。'
-    searchResult.value = null
-    searchRequestToken += 1
-
-    if (route.query.q) {
-      await router.push(buildSearchRoute('', type, 1))
-    }
-
-    return
-  }
-
-  if (keyword === getRouteKeyword() && currentPage.value === 1) {
-    await loadSearch(keyword, type, 1)
-    return
-  }
-
-  await router.push(buildSearchRoute(keyword, type, 1))
-}
-
-async function switchSearchType(type: SearchCategory) {
-  if (type === activeType.value) {
-    return
-  }
-
-  await router.push(buildSearchRoute(getRouteKeyword(), type, 1))
-}
-
 async function changePage(nextPage: number) {
   const keyword = getRouteKeyword()
 
@@ -291,6 +268,15 @@ async function changePage(nextPage: number) {
   }
 
   await router.push(buildSearchRoute(keyword, activeType.value, safePage))
+}
+
+async function switchSearchType(type: SearchCategory) {
+  if (type === activeType.value) {
+    return
+  }
+
+  const keyword = getRouteKeyword()
+  await router.push(buildSearchRoute(keyword, type, 1))
 }
 
 function toPlayerTrack(song: SearchSong) {
@@ -325,6 +311,17 @@ function formatTrackCount(value?: number) {
   }
 
   return `${Math.round(value)} 首`
+}
+
+function handleCoverError(event: Event) {
+  const img = event.target as HTMLImageElement | null
+
+  if (!img || img.dataset.fallbackApplied === 'true') {
+    return
+  }
+
+  img.dataset.fallbackApplied = 'true'
+  img.src = FALLBACK_COVER_URL
 }
 
 function handleTrackSelect(song: SearchSong) {
@@ -364,8 +361,6 @@ watch(
     const type = getRouteSearchType()
     const page = getRoutePage()
 
-    keywordInput.value = keyword
-
     if (!keyword) {
       searchRequestToken += 1
       loading.value = false
@@ -383,20 +378,26 @@ watch(
 <template>
   <section class="search-page">
     <article class="search-shell">
-      <header class="search-toolbar">
+      <header class="search-toolbar search-toolbar--compact">
         <div class="search-toolbar__left">
-          <div class="search-tabs" role="tablist" aria-label="搜索类型切换">
+          <div class="search-tabs" role="tablist" aria-label="搜索类型">
             <button
               v-for="option in SEARCH_TYPE_OPTIONS"
               :key="option.value"
               class="search-tabs__item"
-              :class="{ 'search-tabs__item--active': activeType === option.value }"
-              :aria-selected="activeType === option.value"
+              :class="{ 'search-tabs__item--active': option.value === activeType }"
+              :aria-selected="option.value === activeType"
               role="tab"
               type="button"
               @click="switchSearchType(option.value)"
             >
-              <component :is="option.icon" class="search-tabs__icon" :stroke-width="1.9" />
+              <Disc3 v-if="option.value === 'song'" class="search-tabs__icon" :stroke-width="1.85" />
+              <LibraryBig
+                v-else-if="option.value === 'playlist'"
+                class="search-tabs__icon"
+                :stroke-width="1.85"
+              />
+              <Clapperboard v-else class="search-tabs__icon" :stroke-width="1.85" />
               <span>{{ option.label }}</span>
             </button>
           </div>
@@ -415,11 +416,9 @@ watch(
           </button>
 
           <div class="search-toolbar__query">
-            <Search class="search-toolbar__query-icon" :stroke-width="1.9" />
             <span>搜索</span>
-            <strong>"{{ displayKeyword }}"</strong>
+            <strong>"{{ searchKeyword }}"</strong>
           </div>
-
           <div class="search-toolbar__count">{{ formattedTotalCount }} 条结果</div>
 
           <div class="search-pager" aria-label="分页">
@@ -442,50 +441,18 @@ watch(
             </button>
           </div>
         </div>
-
-        <form v-else class="search-toolbar__search-form" @submit.prevent="submitSearch">
-          <label class="search-toolbar__search-field">
-            <Search class="search-toolbar__field-icon" :stroke-width="1.9" />
-            <input
-              v-model="keywordInput"
-              class="search-toolbar__search-input"
-              type="search"
-              name="q"
-              placeholder="输入歌名、歌手或专辑"
-              autocomplete="off"
-            />
-          </label>
-          <button class="search-toolbar__search-submit" type="submit">搜索</button>
-        </form>
       </header>
 
-      <div v-if="!hasKeyword" class="search-empty">
-        <span class="search-empty__eyebrow">Search Lab</span>
-        <h1>搜索你想听的内容</h1>
-        <p>单曲、歌单和 MV 共用同一套结果工作台。先输入关键词，结果页会自动切到对应类型并支持分页浏览。</p>
-
-        <form class="search-empty__form" @submit.prevent="submitSearch">
-          <label class="search-empty__field">
-            <Search class="search-empty__field-icon" :stroke-width="1.9" />
-            <input
-              v-model="keywordInput"
-              class="search-empty__input"
-              type="search"
-              name="q"
-              placeholder="比如 周杰伦 / 晴天 / Daisy"
-              autocomplete="off"
-            />
-          </label>
-          <button class="search-empty__submit" type="submit">开始搜索</button>
-        </form>
-
-        <div class="search-empty__hint">当前类型: {{ activeTab.label }}</div>
+      <div v-if="!hasKeyword" class="search-status search-status--inline">
+        在顶部固定搜索框输入关键词后，这里会展示 {{ activeTypeLabel }} 结果并支持分页。
       </div>
 
       <div v-else-if="error" class="search-status search-status--error">{{ error }}</div>
-      <div v-else-if="loading && !searchResult" class="search-status">正在搜索 {{ activeTab.label }}...</div>
-      <div v-else-if="searchResult && visibleItemCount === 0" class="search-status">
-        没有找到和“{{ displayKeyword }}”相关的{{ activeTab.noun }}。
+      <div v-else-if="loading && !searchResult" class="search-status search-status--inline">
+        正在搜索 {{ activeTypeLabel }}...
+      </div>
+      <div v-else-if="searchResult && visibleItemCount === 0" class="search-status search-status--inline">
+        没有找到相关 {{ activeTypeLabel }}。
       </div>
 
       <section v-else-if="searchResult" class="search-board" :class="`search-board--${searchResult.type}`">
@@ -549,6 +516,8 @@ watch(
                     loading="lazy"
                     decoding="async"
                     fetchpriority="low"
+                    referrerpolicy="no-referrer"
+                    @error="handleCoverError"
                   />
                   <div class="search-table__copy">
                     <div class="search-table__title">{{ song.name }}</div>
@@ -589,6 +558,8 @@ watch(
                     loading="lazy"
                     decoding="async"
                     fetchpriority="low"
+                    referrerpolicy="no-referrer"
+                    @error="handleCoverError"
                   />
                   <div class="search-table__copy">
                     <div class="search-table__title">{{ playlist.name }}</div>
@@ -623,6 +594,8 @@ watch(
                       loading="lazy"
                       decoding="async"
                       fetchpriority="low"
+                      referrerpolicy="no-referrer"
+                      @error="handleCoverError"
                     />
                     <span class="search-table__duration-badge">{{ formatDurationMs(mv.duration) }}</span>
                   </div>
@@ -660,7 +633,7 @@ watch(
   position: relative;
   display: grid;
   gap: 18px;
-  min-height: 640px;
+  min-height: 0;
   padding: 24px 24px 18px;
   overflow: hidden;
   border-radius: 30px;
@@ -688,7 +661,6 @@ watch(
 }
 
 .search-toolbar,
-.search-empty,
 .search-status,
 .search-board {
   position: relative;
@@ -715,23 +687,31 @@ watch(
 .search-tabs {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px;
-  border-radius: 16px;
-  background: rgba(20, 11, 51, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 152px;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(20, 11, 51, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .search-tabs__item {
-  height: 32px;
-  padding: 0 12px;
+  height: 24px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 6px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 7px;
   background: transparent;
   color: rgba(234, 240, 255, 0.58);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 180ms ease,
@@ -748,12 +728,13 @@ watch(
   background: linear-gradient(180deg, #ff6bbf, #ef4c8a);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 8px 16px rgba(239, 76, 138, 0.28);
+    0 4px 10px rgba(239, 76, 138, 0.24);
 }
 
 .search-tabs__icon {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
+  flex: none;
 }
 
 .search-toolbar__right {
@@ -762,20 +743,25 @@ watch(
 }
 
 .search-toolbar__play-all {
-  height: 36px;
-  padding: 0 14px;
+  width: 74px;
+  height: 24px;
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  gap: 4px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   background: linear-gradient(180deg, #ff61b4, #ef4c8a);
   color: #fff;
+  font-size: 11px;
   font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 10px 20px rgba(239, 76, 138, 0.24);
+    0 6px 14px rgba(239, 76, 138, 0.2);
 }
 
 .search-toolbar__play-all:disabled {
@@ -786,49 +772,55 @@ watch(
 
 .search-toolbar__play-icon,
 .search-toolbar__query-icon {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
+  flex: none;
 }
 
 .search-toolbar__query,
 .search-toolbar__count {
   color: rgba(232, 238, 255, 0.72);
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
 .search-toolbar__query {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  max-width: min(28vw, 220px);
+  overflow: hidden;
 }
 
 .search-toolbar__query strong {
   color: #ff8ec7;
-  font-size: 26px;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .search-pager {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px;
-  border-radius: 14px;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 10px;
   background: rgba(17, 13, 46, 0.44);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .search-pager__button {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 10px;
+  border-radius: 7px;
   background: transparent;
   color: rgba(240, 244, 255, 0.82);
   cursor: pointer;
@@ -840,9 +832,9 @@ watch(
 }
 
 .search-pager__label {
-  min-width: 52px;
+  min-width: 42px;
   color: rgba(244, 247, 255, 0.88);
-  font-size: 13px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
@@ -904,56 +896,24 @@ watch(
     0 10px 20px rgba(238, 76, 138, 0.2);
 }
 
-.search-empty,
 .search-status {
-  display: grid;
-  place-items: center;
-  min-height: 460px;
-  padding: 34px 24px;
-  border-radius: 26px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(12, 10, 36, 0.44);
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(12, 10, 36, 0.32);
   border: 1px solid rgba(255, 255, 255, 0.08);
   text-align: center;
-}
-
-.search-empty__eyebrow {
-  color: rgba(255, 255, 255, 0.46);
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.search-empty h1 {
-  margin: 18px 0 0;
-  color: #fff;
-  font-size: clamp(36px, 5vw, 62px);
-  line-height: 0.96;
-  letter-spacing: -0.06em;
-}
-
-.search-empty p {
-  max-width: 620px;
-  margin: 18px auto 0;
-  color: rgba(229, 236, 255, 0.7);
-  font-size: 14px;
-  line-height: 1.8;
-}
-
-.search-empty__form {
-  margin-top: 28px;
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 .search-empty__hint,
 .search-status {
   color: rgba(232, 238, 255, 0.78);
   font-size: 14px;
+}
+
+.search-status--inline {
+  min-height: 72px;
+  display: grid;
+  place-items: center;
 }
 
 .search-status--error {

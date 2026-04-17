@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
+import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 </script>
 
 <template>
@@ -17,6 +18,10 @@ import PlayerBar from '@/components/PlayerBar.vue'
     </aside>
 
     <section class="layout__main">
+      <div class="layout__dock">
+        <GlobalSearchDock />
+      </div>
+
       <div class="layout__view">
         <RouterView />
       </div>
@@ -30,17 +35,19 @@ import PlayerBar from '@/components/PlayerBar.vue'
 
 <style scoped lang="scss">
 .layout {
+  --layout-player-height: 74px;
+  --layout-player-bottom: 18px;
   position: relative;
-  min-height: 90vh;
+  height: 100dvh;
+  min-height: 100vh;
   padding: 18px 24px 26px 18px;
   display: grid;
   grid-template-columns: 125px minmax(0, 1fr);
-  grid-template-areas:
-    'aside main'
-    'player player';
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'aside main';
   column-gap: 42px;
-  row-gap: 26px;
-  align-items: start;
+  row-gap: 0;
+  align-items: stretch;
   overflow: hidden;
   isolation: isolate;
   background: var(--app-panel-bg);
@@ -184,6 +191,9 @@ import PlayerBar from '@/components/PlayerBar.vue'
 
 .layout__aside {
   grid-area: aside;
+  min-height: 0;
+  height: 100%;
+  padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 8px);
   padding-top: 10px;
 }
 
@@ -191,26 +201,56 @@ import PlayerBar from '@/components/PlayerBar.vue'
   grid-area: main;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
   min-width: 0;
+  min-height: 0;
   width: min(1180px, 100%);
   justify-self: start;
+  padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 12px);
   padding-top: 8px;
+  padding-right: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.layout__dock {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 0 0;
 }
 
 .layout__player {
-  grid-area: player;
-  position: relative;
-  z-index: 1;
+  position: fixed;
+  left: 18px;
+  right: 24px;
+  bottom: var(--layout-player-bottom);
+  z-index: 3;
 }
 
 .layout__view {
   width: 100%;
 }
 
+.layout__main::-webkit-scrollbar {
+  width: 10px;
+}
+
+.layout__main::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
+}
+
 @media (max-width: 960px) {
   .layout {
+    --layout-player-bottom: 0px;
+    height: auto;
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
     grid-template-areas:
       'aside'
       'main'
@@ -221,6 +261,25 @@ import PlayerBar from '@/components/PlayerBar.vue'
 
   .layout__main {
     width: 100%;
+    min-height: auto;
+    padding-bottom: 0;
+    padding-right: 0;
+    overflow: visible;
+  }
+
+  .layout__dock {
+    top: 0;
+  }
+
+  .layout__aside {
+    padding-bottom: 0;
+  }
+
+  .layout__player {
+    position: relative;
+    left: auto;
+    right: auto;
+    bottom: auto;
   }
 }
 

@@ -103,7 +103,8 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 <style scoped lang="scss">
 .menu {
   position: sticky;
-  top: 24px;
+  top: 18px;
+  height: calc(100dvh - var(--layout-player-height, 78px) - var(--layout-player-bottom, 18px) - 42px);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -132,7 +133,11 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 }
 
 .menu__panel {
+  flex: 1;
+  min-height: 0;
   padding: 14px 12px 18px;
+  display: flex;
+  flex-direction: column;
   border-radius: 20px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 18%),
@@ -146,6 +151,11 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 
 .menu__section + .menu__section {
   margin-top: 18px;
+}
+
+.menu__section:last-child {
+  margin-top: auto;
+  padding-top: 18px;
 }
 
 .menu__title {
@@ -221,6 +231,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
   // 小屏幕下取消 sticky，避免占据过多可视区域。
   .menu {
     position: static;
+    height: auto;
   }
 }
 </style>

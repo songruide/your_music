@@ -96,6 +96,29 @@ function getArtistNames(value) {
   return []
 }
 
+async function getSongCoverUrlsByIds(ids) {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+
+  if (uniqueIds.length === 0) {
+    return new Map()
+  }
+
+  const payload = await fetchNcm('/song/detail', {
+    ids: uniqueIds.join(','),
+  })
+  const coverUrlMap = new Map()
+
+  for (const song of payload.songs ?? []) {
+    const coverUrl = song.al?.picUrl ?? song.album?.picUrl ?? ''
+
+    if (coverUrl) {
+      coverUrlMap.set(String(song.id), coverUrl)
+    }
+  }
+
+  return coverUrlMap
+}
+
 // 解析歌曲播放源时先尝试 /song/url，再回退到 /song/url/v1。
 // 这么做是为了尽量兼容不同歌曲、不同上游接口在音源可用性上的差异。
 async function resolveSongSource(id, level) {
@@ -278,6 +301,17 @@ app.get('/api/search/songs', async (req, res) => {
       duration: item.duration ?? item.dt,
       playable: true,
     }))
+    const missingCoverSongIds = songs.filter((song) => !song.coverUrl).map((song) => song.id)
+
+    if (missingCoverSongIds.length > 0) {
+      const coverUrlMap = await getSongCoverUrlsByIds(missingCoverSongIds)
+
+      for (const song of songs) {
+        if (!song.coverUrl) {
+          song.coverUrl = coverUrlMap.get(song.id) ?? ''
+        }
+      }
+    }
 
     res.json(
       ok({

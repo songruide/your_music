@@ -6,6 +6,8 @@ import { ListMusic, Volume2, VolumeX } from 'lucide-vue-next'
 import { usePlayerStore } from '@/stores/player'
 
 const playerStore = usePlayerStore()
+const FALLBACK_COVER_URL =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f35bb4'/%3E%3Cstop offset='1' stop-color='%23508dff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='24' fill='url(%23g)'/%3E%3Ccircle cx='60' cy='44' r='16' fill='rgba(255,255,255,.7)'/%3E%3Crect x='30' y='68' width='60' height='22' rx='11' fill='rgba(255,255,255,.46)'/%3E%3C/svg%3E"
 const {
   currentIndex,
   currentTime,
@@ -79,6 +81,17 @@ function handleVolumeInput(event: Event) {
   const input = event.target as HTMLInputElement
   playerStore.setVolume(Number(input.value) / 100)
 }
+
+function handleCoverError(event: Event) {
+  const img = event.target as HTMLImageElement | null
+
+  if (!img || img.dataset.fallbackApplied === 'true') {
+    return
+  }
+
+  img.dataset.fallbackApplied = 'true'
+  img.src = FALLBACK_COVER_URL
+}
 </script>
 
 <template>
@@ -91,6 +104,8 @@ function handleVolumeInput(event: Event) {
             class="player__cover"
             :src="currentTrack.coverUrl"
             :alt="currentTrack.title"
+            referrerpolicy="no-referrer"
+            @error="handleCoverError"
           />
           <div v-else class="player__cover player__cover--placeholder" aria-hidden="true"></div>
         </div>
@@ -215,9 +230,10 @@ function handleVolumeInput(event: Event) {
   grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(220px, 260px);
   align-items: center;
   gap: 20px;
-  min-height: 88px;
-  padding: 16px 20px;
-  border-radius: 24px;
+  height: 74px;
+  min-height: 74px;
+  padding: 10px 18px;
+  border-radius: 22px;
   background:
     linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -251,7 +267,7 @@ function handleVolumeInput(event: Event) {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-radius: 16px;
   background: rgba(20, 10, 46, 0.46);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -313,7 +329,7 @@ function handleVolumeInput(event: Event) {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .player__timeline {
@@ -439,7 +455,7 @@ function handleVolumeInput(event: Event) {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .player__debug-button {
@@ -560,7 +576,9 @@ function handleVolumeInput(event: Event) {
     grid-template-columns: 1fr;
     justify-items: stretch;
     gap: 14px;
-    padding: 16px 14px;
+    height: auto;
+    min-height: 74px;
+    padding: 14px;
   }
 
   .player__transport,
