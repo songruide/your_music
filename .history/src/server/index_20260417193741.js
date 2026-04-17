@@ -66,36 +66,6 @@ function getLimit(value, total) {
   return limit
 }
 
-function getOffset(value) {
-  const offset = Number(value)
-
-  if (!Number.isFinite(offset) || offset < 0) {
-    return 0
-  }
-
-  return Math.floor(offset)
-}
-
-function getArtistNames(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((artist) => {
-        if (typeof artist === 'string') {
-          return artist
-        }
-
-        return artist?.name
-      })
-      .filter(Boolean)
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    return [value.trim()]
-  }
-
-  return []
-}
-
 // 解析歌曲播放源时先尝试 /song/url，再回退到 /song/url/v1。
 // 这么做是为了尽量兼容不同歌曲、不同上游接口在音源可用性上的差异。
 async function resolveSongSource(id, level) {
@@ -257,13 +227,11 @@ app.get('/api/search/songs', async (req, res) => {
       return
     }
 
-    // 单曲列表采用更大的页容量，桌面端更接近完整曲库表格的观感。
-    const limit = Math.min(getLimit(req.query.limit, 40), 60)
-    const offset = getOffset(req.query.offset)
+    // 这里把 limit 上限压到 50，避免一次性拉太多结果导致响应过重。
+    const limit = Math.min(getLimit(req.query.limit, 20), 50)
     const payload = await fetchNcm('/search', {
       keywords,
       limit,
-      offset,
       type: 1,
     })
 
@@ -284,101 +252,6 @@ app.get('/api/search/songs', async (req, res) => {
         keyword: keywords,
         total: Number(payload.result?.songCount ?? songs.length),
         songs,
-      }),
-    )
-  } catch (error) {
-    res.status(500).json({
-      code: 500,
-      data: null,
-      message: error instanceof Error ? error.message : 'server error',
-    })
-  }
-})
-
-app.get('/api/search/playlists', async (req, res) => {
-  try {
-    const keywords = String(req.query.keywords ?? '').trim()
-
-    if (!keywords) {
-      res.status(400).json({
-        code: 400,
-        data: null,
-        message: 'keywords is required',
-      })
-      return
-    }
-
-    const limit = Math.min(getLimit(req.query.limit, 18), 30)
-    const offset = getOffset(req.query.offset)
-    const payload = await fetchNcm('/search', {
-      keywords,
-      limit,
-      offset,
-      type: 1000,
-    })
-
-    const playlists = (payload.result?.playlists ?? []).map((item) => ({
-      id: String(item.id),
-      name: item.name ?? '',
-      coverUrl: item.coverImgUrl ?? item.picUrl ?? '',
-      creatorName: item.creator?.nickname ?? '未知创建者',
-      description: item.description ?? '',
-      playCount: item.playCount,
-      trackCount: item.trackCount,
-    }))
-
-    res.json(
-      ok({
-        keyword: keywords,
-        total: Number(payload.result?.playlistCount ?? playlists.length),
-        playlists,
-      }),
-    )
-  } catch (error) {
-    res.status(500).json({
-      code: 500,
-      data: null,
-      message: error instanceof Error ? error.message : 'server error',
-    })
-  }
-})
-
-app.get('/api/search/mvs', async (req, res) => {
-  try {
-    const keywords = String(req.query.keywords ?? '').trim()
-
-    if (!keywords) {
-      res.status(400).json({
-        code: 400,
-        data: null,
-        message: 'keywords is required',
-      })
-      return
-    }
-
-    const limit = Math.min(getLimit(req.query.limit, 18), 30)
-    const offset = getOffset(req.query.offset)
-    const payload = await fetchNcm('/search', {
-      keywords,
-      limit,
-      offset,
-      type: 1004,
-    })
-
-    const mvs = (payload.result?.mvs ?? []).map((item) => ({
-      id: String(item.id),
-      name: item.name ?? '',
-      artistNames: getArtistNames(item.artists ?? item.artistName ?? item.artistNames),
-      coverUrl: item.cover ?? item.imgurl ?? '',
-      duration: item.duration,
-      playCount: item.playCount,
-    }))
-
-    res.json(
-      ok({
-        keyword: keywords,
-        total: Number(payload.result?.mvCount ?? mvs.length),
-        mvs,
       }),
     )
   } catch (error) {

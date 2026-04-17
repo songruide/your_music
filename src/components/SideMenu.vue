@@ -14,6 +14,9 @@ import {
 import type { Component } from 'vue'
 import { useRoute } from 'vue-router'
 
+// 侧边栏菜单项的数据模型。
+// to 表示这是一个可跳转路由；
+// muted 表示当前只是“占位入口”，先展示但暂不开放交互。
 type MenuItem = {
   label: string
   icon: Component
@@ -23,6 +26,9 @@ type MenuItem = {
 
 const route = useRoute()
 
+// 侧边栏不是把每个按钮直接写死在模板里，
+// 而是先整理成分组数据，再通过 v-for 渲染。
+// 这样后面增加菜单、调整顺序时，只改配置数据就够了。
 const sections: Array<{ title: string; items: MenuItem[] }> = [
   {
     title: '探索',
@@ -30,9 +36,9 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
       { label: '首页', icon: HomeFilled, to: '/' },
       { label: 'MV', icon: VideoPlay, to: '/mv' },
       { label: '音乐馆', icon: Headset, to: '/music' },
+      { label: '搜索', icon: Search, to: '/search' },
       { label: '排行榜', icon: TrendCharts, muted: true },
       { label: '歌手', icon: UserFilled, muted: true },
-      { label: '搜索', icon: Search, muted: true },
     ],
   },
   {
@@ -49,11 +55,13 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
   },
 ]
 
+// 当前路径与菜单目标路径一致时，高亮对应项。
 const isActive = (to?: string) => Boolean(to && route.path === to)
 </script>
 
 <template>
   <nav class="menu" aria-label="Sidebar">
+    <!-- 顶部品牌区。 -->
     <div class="menu__brand">
       Your<span>Music</span>
     </div>
@@ -64,6 +72,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 
         <div class="menu__group">
           <template v-for="item in section.items" :key="item.label">
+            <!-- 有 to 的菜单项渲染成 RouterLink，点击后执行真实路由跳转。 -->
             <RouterLink
               v-if="item.to"
               :to="item.to"
@@ -74,6 +83,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
               <span>{{ item.label }}</span>
             </RouterLink>
 
+            <!-- 没有 to 的菜单项先用 button 占位，表示“功能规划中但暂未开放”。 -->
             <button
               v-else
               type="button"
@@ -99,6 +109,8 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
   gap: 14px;
 }
 
+// 使用 sticky 让侧边栏在桌面端滚动时保持可见，
+// 这样用户在长页面里也能随时切换页面。
 .menu__brand {
   padding-left: 4px;
   font-size: 24px;
@@ -150,6 +162,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
   gap: 4px;
 }
 
+// 每个菜单项都做成整行点击区域，提升可点击性和命中率。
 .menu__item {
   width: 100%;
   display: flex;
@@ -205,6 +218,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 }
 
 @media (max-width: 960px) {
+  // 小屏幕下取消 sticky，避免占据过多可视区域。
   .menu {
     position: static;
   }
