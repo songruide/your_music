@@ -6,6 +6,8 @@ import SearchToolbar from './components/SearchToolbar.vue'
 import { SEARCH_TYPE_OPTIONS } from './constants'
 import { useSearchPage } from './useSearchPage'
 
+// index.vue 现在只保留页面装配职责：
+// 取 composable 状态，然后按结果类型切到对应展示组件。
 const {
   activeType,
   activeTypeLabel,

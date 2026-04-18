@@ -209,17 +209,16 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
   padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 12px);
   padding-top: 8px;
   padding-right: 8px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 .layout__dock {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 4;
   display: flex;
   justify-content: flex-end;
-  padding: 2px 0 0;
+  flex: 0 0 auto;
+  padding: 0 0 12px;
 }
 
 .layout__player {
@@ -232,13 +231,18 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 
 .layout__view {
   width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.layout__main::-webkit-scrollbar {
+.layout__view::-webkit-scrollbar {
   width: 10px;
 }
 
-.layout__main::-webkit-scrollbar-thumb {
+.layout__view::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
@@ -249,6 +253,7 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
   .layout {
     --layout-player-bottom: 0px;
     height: auto;
+    overflow: visible;
     grid-template-columns: 1fr;
     grid-template-rows: auto;
     grid-template-areas:
@@ -268,7 +273,15 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
   }
 
   .layout__dock {
+    position: sticky;
     top: 0;
+    padding: 0 0 12px;
+  }
+
+  .layout__view {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
   }
 
   .layout__aside {

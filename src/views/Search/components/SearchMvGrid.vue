@@ -4,6 +4,8 @@ import type { SearchMv } from '@/api/search'
 import { formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, formatCompactPlayCount, handleSearchCoverError } from '../utils'
 
+// MV 区域和歌单卡片一样保持轻量，
+// 当前只关心搜索结果展示，后续扩展播放/详情时再由父层接管行为。
 defineProps<{
   mvs: SearchMv[]
 }>()

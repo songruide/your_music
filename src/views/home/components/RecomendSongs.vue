@@ -13,6 +13,11 @@
             v-for="item in props.recommendedPlaylists.slice(0, 12)"
             :key="item.id"
             class="playlist-card"
+            role="button"
+            tabindex="0"
+            @click="openPlaylistDetail(item.id)"
+            @keydown.enter.prevent="openPlaylistDetail(item.id)"
+            @keydown.space.prevent="openPlaylistDetail(item.id)"
           >
             <div class="playlist-card__cover">
               <img
@@ -31,8 +36,12 @@
       </section>
 </template>
 
-<script setup lang="ts" scoped>
-import { type HomePlaylist} from '@/api/home'
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { type HomePlaylist } from '@/api/home'
+
+const router = useRouter()
+
 function formatPlayCount(value?: number) {
   if (!value) {
     return '0'
@@ -51,6 +60,10 @@ function formatPlayCount(value?: number) {
 const props = defineProps<{
   recommendedPlaylists: HomePlaylist[]
 }>()
+
+function openPlaylistDetail(id: string) {
+  void router.push(`/playlist/${id}`)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -66,6 +79,17 @@ const props = defineProps<{
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+  cursor: pointer;
+  transition: transform 200ms ease;
+}
+
+.playlist-card:hover {
+  transform: translateY(-4px);
+}
+
+.playlist-card:focus-visible {
+  outline: none;
+  transform: translateY(-4px);
 }
 
 .playlist-card__cover {

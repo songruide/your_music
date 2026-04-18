@@ -8,6 +8,8 @@ import type {
 import { DEFAULT_SEARCH_TYPE, FALLBACK_COVER_URL } from './constants'
 import type { SearchResultState } from './types'
 
+// 路由 query 里同一个字段可能是 string / string[] / undefined，
+// 这里先统一收口，后面的路由解析逻辑都基于稳定字符串工作。
 export function getNormalizedQueryValue(value: unknown) {
   if (Array.isArray(value)) {
     return value[0]?.trim() ?? ''
@@ -40,6 +42,8 @@ export function getRoutePage(query: LocationQuery) {
   return Math.floor(rawValue)
 }
 
+// buildSearchRoute 负责统一生成搜索页 URL，
+// 这样分页、切类型、外部跳转都不会各自拼 query，避免规则散落。
 export function buildSearchRoute(keyword: string, type: SearchCategory, page = 1) {
   const query: Record<string, string> = {}
 
@@ -61,6 +65,8 @@ export function buildSearchRoute(keyword: string, type: SearchCategory, page = 1
   }
 }
 
+// API 层返回值和页面状态结构略有差异，这里做一次归一化后，
+// 页面和组件就不需要知道后端字段名细节了。
 export function normalizeSongResult(response: SearchSongsResponse): SearchResultState {
   return {
     type: 'song',
@@ -124,6 +130,7 @@ export function formatArtistNames(names?: string[]) {
   return names.filter(Boolean).join(' / ') || '未知歌手'
 }
 
+// 封面加载失败时只替换一次，避免 fallback 本身异常时进入死循环。
 export function handleSearchCoverError(event: Event) {
   const img = event.target as HTMLImageElement | null
 

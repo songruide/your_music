@@ -3,6 +3,8 @@ import { Headphones } from 'lucide-vue-next'
 import type { SearchPlaylist } from '@/api/search'
 import { formatCompactPlayCount, formatCompactTrackCount, handleSearchCoverError } from '../utils'
 
+// 歌单卡片目前只负责搜索结果浏览。
+// 如果后面要接歌单详情，优先在父层追加点击事件，不要把路由逻辑塞回这里。
 defineProps<{
   playlists: SearchPlaylist[]
 }>()

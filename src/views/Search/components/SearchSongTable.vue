@@ -4,6 +4,8 @@ import type { SearchSong } from '@/api/search'
 import { formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, handleSearchCoverError } from '../utils'
 
+// 单曲表格保持“纯展示 + 事件抛出”的职责，
+// 选中歌曲后具体怎么播由页面 composable 决定。
 defineProps<{
   currentTrackId?: string
   isPlaying: boolean

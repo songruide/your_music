@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, Clapperboard, Disc3, LibraryBig, Play } from
 import type { SearchCategory } from '@/api/search'
 import type { SearchTypeOption } from '../types'
 
+// 工具栏只负责展示当前状态并向外派发交互事件，
+// 不直接依赖路由或请求逻辑，保持为纯展示组件。
 defineProps<{
   activeType: SearchCategory
   canPlayAll: boolean

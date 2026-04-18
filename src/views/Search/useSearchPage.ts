@@ -22,6 +22,9 @@ import {
   normalizeSongResult,
 } from './utils'
 
+// 搜索页的“页面状态容器”。
+// 这里把路由解析、搜索请求、分页切换、播放器联动都集中管理，
+// 组件层只负责接 props 渲染，避免展示组件里再混业务逻辑。
 export function useSearchPage() {
   const route = useRoute()
   const router = useRouter()
@@ -79,6 +82,7 @@ export function useSearchPage() {
   const searchKeyword = computed(() => searchResult.value?.keyword ?? getRouteKeyword(route.query))
 
   async function loadSearch(keyword: string, type: SearchCategory, page: number) {
+    // requestToken 用来丢弃过期请求，避免用户连续切页/切类型时旧响应把新结果覆盖掉。
     const requestToken = ++searchRequestToken
     const pageSize = getPageSize(type)
     const offset = (page - 1) * pageSize
@@ -103,6 +107,8 @@ export function useSearchPage() {
 
       const maxPage = Math.max(1, Math.ceil(nextState.total / pageSize))
 
+      // 当 URL 里的 page 超出最大页数时，直接把路由修正到最后一页，
+      // 让地址栏和展示结果始终保持一致。
       if (page > maxPage) {
         await router.replace(buildSearchRoute(keyword, type, maxPage))
         return
@@ -163,11 +169,14 @@ export function useSearchPage() {
       return
     }
 
+    // 点中当前歌曲时直接切换播放状态，保持和常见音乐播放器一致的交互。
     if (currentTrack.value?.id === song.id) {
       void playerStore.togglePlay()
       return
     }
 
+    // 搜索结果播放时，把当前页“可播放歌曲”转成播放器队列，
+    // 这样用户可以从任意一首开始连续播放这一页结果。
     const queue = playableSongs.value.map(toPlayerTrack)
     const startAt = queue.findIndex((item) => item.id === song.id)
 
@@ -191,6 +200,8 @@ export function useSearchPage() {
   watch(
     () => [getRouteKeyword(route.query), getRouteSearchType(route.query), getRoutePage(route.query)],
     ([keyword, type, page]) => {
+      // 这个页面把“路由”当成唯一数据源。
+      // 不管是顶部搜索框、tab 切换还是分页按钮，最终都通过改 URL 来驱动页面刷新。
       if (!keyword) {
         searchRequestToken += 1
         loading.value = false
