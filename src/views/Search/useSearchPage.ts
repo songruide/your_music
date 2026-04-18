@@ -1,0 +1,233 @@
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  searchMvs,
+  searchPlaylists,
+  searchSongs,
+  type SearchCategory,
+  type SearchSong,
+} from '@/api/search'
+import { usePlayerStore } from '@/stores/player'
+import { buildPlayerTrack } from '@/utils/playerTrack'
+import { getPageSize, getSearchTypeLabel } from './constants'
+import type { SearchResultState } from './types'
+import {
+  buildSearchRoute,
+  getRouteKeyword,
+  getRoutePage,
+  getRouteSearchType,
+  normalizeMvResult,
+  normalizePlaylistResult,
+  normalizeSongResult,
+} from './utils'
+
+export function useSearchPage() {
+  const route = useRoute()
+  const router = useRouter()
+  const playerStore = usePlayerStore()
+  const { currentTrack, isPlaying } = storeToRefs(playerStore)
+
+  const loading = ref(false)
+  const error = ref('')
+  const searchResult = ref<SearchResultState | null>(null)
+  let searchRequestToken = 0
+
+  const activeType = computed(() => getRouteSearchType(route.query))
+  const activeTypeLabel = computed(() => getSearchTypeLabel(activeType.value))
+  const hasKeyword = computed(() => Boolean(getRouteKeyword(route.query)))
+  const currentPage = computed(() => getRoutePage(route.query))
+  const currentPageSize = computed(() => getPageSize(activeType.value))
+  const currentTrackId = computed(() => currentTrack.value?.id)
+
+  const songItems = computed(() => (searchResult.value?.type === 'song' ? searchResult.value.items : []))
+  const playlistItems = computed(() =>
+    searchResult.value?.type === 'playlist' ? searchResult.value.items : [],
+  )
+  const mvItems = computed(() => (searchResult.value?.type === 'mv' ? searchResult.value.items : []))
+
+  const visibleItemCount = computed(() => {
+    if (searchResult.value?.type === 'song') {
+      return songItems.value.length
+    }
+
+    if (searchResult.value?.type === 'playlist') {
+      return playlistItems.value.length
+    }
+
+    if (searchResult.value?.type === 'mv') {
+      return mvItems.value.length
+    }
+
+    return 0
+  })
+
+  const playableSongs = computed(() => songItems.value.filter((song) => song.playable !== false))
+  const canPlayAll = computed(() => playableSongs.value.length > 0)
+  const totalPages = computed(() => {
+    if (!searchResult.value) {
+      return 1
+    }
+
+    return Math.max(1, Math.ceil(searchResult.value.total / currentPageSize.value))
+  })
+
+  const hasPreviousPage = computed(() => currentPage.value > 1)
+  const hasNextPage = computed(() => currentPage.value < totalPages.value)
+  const startIndex = computed(() => (currentPage.value - 1) * currentPageSize.value)
+  const formattedTotalCount = computed(() => (searchResult.value?.total ?? 0).toLocaleString())
+  const searchKeyword = computed(() => searchResult.value?.keyword ?? getRouteKeyword(route.query))
+
+  async function loadSearch(keyword: string, type: SearchCategory, page: number) {
+    const requestToken = ++searchRequestToken
+    const pageSize = getPageSize(type)
+    const offset = (page - 1) * pageSize
+
+    loading.value = true
+    error.value = ''
+
+    try {
+      let nextState: SearchResultState
+
+      if (type === 'song') {
+        nextState = normalizeSongResult(await searchSongs(keyword, { limit: pageSize, offset }))
+      } else if (type === 'playlist') {
+        nextState = normalizePlaylistResult(await searchPlaylists(keyword, { limit: pageSize, offset }))
+      } else {
+        nextState = normalizeMvResult(await searchMvs(keyword, { limit: pageSize, offset }))
+      }
+
+      if (requestToken !== searchRequestToken) {
+        return
+      }
+
+      const maxPage = Math.max(1, Math.ceil(nextState.total / pageSize))
+
+      if (page > maxPage) {
+        await router.replace(buildSearchRoute(keyword, type, maxPage))
+        return
+      }
+
+      searchResult.value = nextState
+    } catch (err) {
+      if (requestToken !== searchRequestToken) {
+        return
+      }
+
+      searchResult.value = null
+      error.value = err instanceof Error ? err.message : '搜索失败，请稍后再试'
+    } finally {
+      if (requestToken === searchRequestToken) {
+        loading.value = false
+      }
+    }
+  }
+
+  async function changePage(nextPage: number) {
+    const keyword = getRouteKeyword(route.query)
+
+    if (!keyword) {
+      return
+    }
+
+    const safePage = Math.min(Math.max(nextPage, 1), totalPages.value)
+
+    if (safePage === currentPage.value) {
+      return
+    }
+
+    await router.push(buildSearchRoute(keyword, activeType.value, safePage))
+  }
+
+  async function switchSearchType(type: SearchCategory) {
+    if (type === activeType.value) {
+      return
+    }
+
+    const keyword = getRouteKeyword(route.query)
+    await router.push(buildSearchRoute(keyword, type, 1))
+  }
+
+  function toPlayerTrack(song: SearchSong) {
+    return buildPlayerTrack({
+      id: song.id,
+      title: song.name,
+      artistNames: song.artistNames,
+      coverUrl: song.coverUrl,
+      durationMs: song.duration,
+    })
+  }
+
+  function handleTrackSelect(song: SearchSong) {
+    if (song.playable === false) {
+      return
+    }
+
+    if (currentTrack.value?.id === song.id) {
+      void playerStore.togglePlay()
+      return
+    }
+
+    const queue = playableSongs.value.map(toPlayerTrack)
+    const startAt = queue.findIndex((item) => item.id === song.id)
+
+    if (startAt < 0) {
+      return
+    }
+
+    void playerStore.playQueue(queue, startAt)
+  }
+
+  function playAll() {
+    const queue = playableSongs.value.map(toPlayerTrack)
+
+    if (queue.length === 0) {
+      return
+    }
+
+    void playerStore.playQueue(queue, 0)
+  }
+
+  watch(
+    () => [getRouteKeyword(route.query), getRouteSearchType(route.query), getRoutePage(route.query)],
+    ([keyword, type, page]) => {
+      if (!keyword) {
+        searchRequestToken += 1
+        loading.value = false
+        error.value = ''
+        searchResult.value = null
+        return
+      }
+
+      void loadSearch(keyword, type, page)
+    },
+    { immediate: true },
+  )
+
+  return {
+    activeType,
+    activeTypeLabel,
+    canPlayAll,
+    changePage,
+    currentPage,
+    currentTrackId,
+    error,
+    formattedTotalCount,
+    handleTrackSelect,
+    hasKeyword,
+    hasNextPage,
+    hasPreviousPage,
+    isPlaying,
+    loading,
+    mvItems,
+    playAll,
+    playlistItems,
+    searchKeyword,
+    searchResult,
+    songItems,
+    startIndex,
+    switchSearchType,
+    totalPages,
+    visibleItemCount,
+  }
+}
