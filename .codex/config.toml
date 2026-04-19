@@ -1,0 +1,9 @@
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+
+[sandbox_workspace_write]
+writable_roots = ["/mnt/hgfs/your-music", "/tmp"]
+network_access = true
+exclude_tmpdir_env_var = false
+exclude_slash_tmp = false
