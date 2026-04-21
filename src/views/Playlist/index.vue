@@ -6,6 +6,7 @@ import { useRoute } from 'vue-router'
 import { getPlaylistDetail, type PlaylistDetail, type PlaylistTrack } from '@/api/playlist'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
+import { debounce } from '@/utils/timing'
 
 const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff5faf'/%3E%3Cstop offset='1' stop-color='%2351a8ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='240' height='240' rx='42' fill='url(%23g)'/%3E%3Ccircle cx='120' cy='94' r='30' fill='rgba(255,255,255,.72)'/%3E%3Crect x='58' y='146' width='124' height='38' rx='19' fill='rgba(255,255,255,.48)'/%3E%3C/svg%3E"
@@ -20,8 +21,10 @@ const playlist = ref<PlaylistDetail | null>(null)
 const actionHint = ref('')
 const isLiked = ref(false)
 
-let hintTimer: number | undefined
 let requestToken = 0
+const clearActionHint = debounce(() => {
+  actionHint.value = ''
+}, 1800)
 
 const playlistId = computed(() => {
   const value = route.params.id
@@ -104,14 +107,7 @@ function handleCoverError(event: Event) {
 
 function showActionHint(message: string) {
   actionHint.value = message
-
-  if (hintTimer !== undefined) {
-    window.clearTimeout(hintTimer)
-  }
-
-  hintTimer = window.setTimeout(() => {
-    actionHint.value = ''
-  }, 1800)
+  clearActionHint()
 }
 
 function toPlayerTrack(song: PlaylistTrack) {
@@ -238,9 +234,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (hintTimer !== undefined) {
-    window.clearTimeout(hintTimer)
-  }
+  clearActionHint.cancel()
 })
 </script>
 

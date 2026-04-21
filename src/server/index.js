@@ -188,6 +188,10 @@ function getMvPlayCount(item) {
   return Number.isFinite(playCount) && playCount > 0 ? playCount : undefined
 }
 
+// 不同 NCM MV 接口返回的分辨率结构并不完全一致：
+// - 有的接口是 brs: [{ br: 1080 }, { br: 720 }]
+// - 有的场景可能是对象表结构
+// 这里统一转成前端更好用的 [{ label: '1080p', value: 1080 }]。
 function getMvResolutionEntries(detail) {
   const brs = detail?.brs
 
@@ -195,6 +199,19 @@ function getMvResolutionEntries(detail) {
     return []
   }
 
+  // /mv/detail 当前最常见的就是数组结构，这里优先支持它。
+  if (Array.isArray(brs)) {
+    return brs
+      .map((item) => Number(item?.br))
+      .filter((value) => Number.isFinite(value) && value > 0)
+      .sort((left, right) => right - left)
+      .map((value) => ({
+        label: `${value}p`,
+        value,
+      }))
+  }
+
+  // 兜底兼容对象键结构，避免以后上游字段形态变化时完全失效。
   return Object.keys(brs)
     .map((value) => Number(value))
     .filter((value) => Number.isFinite(value) && value > 0)
@@ -205,6 +222,11 @@ function getMvResolutionEntries(detail) {
     }))
 }
 
+// 用户请求的清晰度不一定真的存在。
+// 例如用户上次停留在 1080p，但当前 MV 只有 720p。
+// 这里的策略是：
+// - 如果请求值可用，就沿用
+// - 如果不可用，就回退到当前 MV 最高可用清晰度
 function getPreferredMvResolution(detail, requestedResolution) {
   const availableResolutions = getMvResolutionEntries(detail)
 
@@ -221,10 +243,13 @@ function getPreferredMvResolution(detail, requestedResolution) {
   return availableResolutions[0]?.value ?? requestedResolution
 }
 
+// 首选默认清晰度就是“当前 MV 可用的最高一档”。
 function getDefaultMvResolution(detail) {
   return getMvResolutionEntries(detail)[0]?.value ?? 1080
 }
 
+// resolveMvSource 只做一件事：拿“某个清晰度下的实际视频地址”。
+// 之所以单独抽函数，是因为 /api/mvs/source 和 /api/mvs/stream 都要复用同一套逻辑。
 async function resolveMvSource(id, resolution) {
   const payload = await fetchNcm('/mv/url', {
     id,
@@ -679,6 +704,9 @@ app.get('/api/search/mvs', async (req, res) => {
   }
 })
 
+// 精选页接口：
+// 把多个上游 MV 列表接口统一收口成同一种前端结构，
+// 页面层只关心“当前分组有哪些卡片”。
 app.get('/api/mvs/featured', async (req, res) => {
   try {
     const collectionKey = getMvCollectionKey(req.query.collection)
@@ -714,6 +742,8 @@ app.get('/api/mvs/featured', async (req, res) => {
   }
 })
 
+// MV 详情接口：
+// 给播放器弹层提供标题、歌手、描述、发布时间、评论数以及可切换清晰度列表。
 app.get('/api/mvs/detail', async (req, res) => {
   try {
     const id = String(req.query.id ?? '').trim()
@@ -770,6 +800,11 @@ app.get('/api/mvs/detail', async (req, res) => {
   }
 })
 
+// MV 播放地址接口：
+// 前端不会直接拿 /mv/url，而是先来这里。
+// 这里负责两件事：
+// 1. 根据详情判断请求清晰度是否可用
+// 2. 返回我们自己的 streamUrl，让 video 标签后续走统一代理地址
 app.get('/api/mvs/source', async (req, res) => {
   try {
     const id = String(req.query.id ?? '').trim()
@@ -830,6 +865,9 @@ app.get('/api/mvs/source', async (req, res) => {
   }
 })
 
+// MV 视频流代理接口：
+// 浏览器 video 最终播放的是这个地址，而不是上游直链。
+// 这样后面如果要做日志、限流、替换上游或补鉴权，都不需要改前端。
 app.get('/api/mvs/stream', async (req, res) => {
   try {
     const id = String(req.query.id ?? '').trim()
@@ -870,6 +908,8 @@ app.get('/api/mvs/stream', async (req, res) => {
       return
     }
 
+    // video 标签拖动进度时会发 Range 请求；
+    // 这里透传给上游，保证快进/拖拽依然能正常工作。
     const upstreamHeaders = new Headers()
 
     if (req.headers.range) {
@@ -885,6 +925,7 @@ app.get('/api/mvs/stream', async (req, res) => {
       throw new Error(`Video stream request failed: ${upstreamResponse.status}`)
     }
 
+    // 只复制视频播放真正依赖的关键响应头，避免把无关头部也透传出去。
     for (const headerName of VIDEO_RESPONSE_HEADERS) {
       const headerValue = upstreamResponse.headers.get(headerName)
 
@@ -902,11 +943,14 @@ app.get('/api/mvs/stream', async (req, res) => {
 
     res.status(upstreamResponse.status)
 
+    // 极端情况下上游可能没有 body，这里直接结束响应，避免 pipe 时报错。
     if (!upstreamResponse.body) {
       res.end()
       return
     }
 
+    // 上游 fetch 返回的是 Web ReadableStream；
+    // Express 这边用 Node 流更方便，所以先做一次转换再 pipe 给浏览器。
     Readable.fromWeb(upstreamResponse.body).pipe(res)
   } catch (error) {
     res.status(500).json({

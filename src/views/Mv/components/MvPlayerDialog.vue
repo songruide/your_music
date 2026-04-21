@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { MessageSquareMore, Share2, X } from 'lucide-vue-next'
+import { MessageSquareMore, Pause, Play, Share2, X } from 'lucide-vue-next'
 import {
   getMvDetail,
   getMvPlaybackSource,
   type MvDetail,
-  type MvFeaturedItem,
+  type MvPlaybackSeed,
   type MvPlaybackSource,
 } from '@/api/mv'
 import { formatDurationMs } from '@/utils/playerTrack'
 
+// 这个弹层只依赖“最小可播放 MV 数据”：
+// - modelValue 控制开关
+// - mv 提供 id / 标题 / 封面 / 歌手这些打开弹层时首屏就能用到的内容
+// 更完整的详情和播放地址，都会在弹层内部自行加载。
 const props = defineProps<{
   modelValue: boolean
-  mv: MvFeaturedItem | null
+  mv: MvPlaybackSeed | null
 }>()
 
 const emit = defineEmits<{
@@ -25,16 +29,51 @@ const loading = ref(false)
 const sourceLoading = ref(false)
 const error = ref('')
 const selectedResolution = ref<number | null>(null)
+const videoElement = ref<HTMLVideoElement | null>(null)
+const actualDurationMs = ref<number | null>(null)
+const videoCurrentTimeSeconds = ref(0)
+const videoDurationSeconds = ref(0)
+const videoSeekableEndSeconds = ref(0)
+const isVideoPlaying = ref(false)
 
+// requestToken 用于丢弃过期异步请求。
+// 例如：连续点开两支不同 MV 时，第一支详情慢回来，不能覆盖第二支当前弹层状态。
 let requestToken = 0
+
+// 弹层打开时会锁定 body 滚动；关闭时必须恢复之前的 overflow。
+// previousBodyOverflow 用来记住用户在打开前 body 的样式。
 let previousBodyOverflow = ''
 
+// 这三个 computed 让弹层能做到“边加载边有内容”：
+// 即使 detail 还没回来，也能先用父层传入的 seed 数据把标题、歌手、封面先渲染出来。
 const displayTitle = computed(() => detail.value?.title || props.mv?.title || '')
 const displayArtist = computed(() => detail.value?.artistName || props.mv?.artistNames.join(' / ') || '未知歌手')
 const displayCover = computed(() => detail.value?.coverUrl || props.mv?.coverUrl || '')
+const resolvedDurationMs = computed(() => actualDurationMs.value ?? detail.value?.duration)
+const resolvedVideoDurationSeconds = computed(() => {
+  const detailDurationSeconds = detail.value?.duration ? detail.value.duration / 1000 : 0
 
+  return Math.max(
+    videoDurationSeconds.value,
+    videoSeekableEndSeconds.value,
+    videoCurrentTimeSeconds.value,
+    detailDurationSeconds,
+  )
+})
+const videoProgressPercent = computed(() => {
+  if (resolvedVideoDurationSeconds.value <= 0) {
+    return 0
+  }
+
+  return Math.min((videoCurrentTimeSeconds.value / resolvedVideoDurationSeconds.value) * 100, 100)
+})
+const videoCurrentTimeLabel = computed(() => formatTime(videoCurrentTimeSeconds.value))
+const videoDurationLabel = computed(() => formatTime(resolvedVideoDurationSeconds.value))
+
+// statRows 把详情区做成统一的标签-值数组，
+// 模板层只负责遍历，不需要写一堆重复的卡片结构。
 const statRows = computed(() => [
-  ['时长', formatDurationMs(detail.value?.duration)],
+  ['时长', formatDurationMs(resolvedDurationMs.value)],
   ['播放', formatPlayCount(detail.value?.playCount)],
   ['发布', detail.value?.publishTime || '未知'],
   ['收藏', formatCount(detail.value?.subscribedCount)],
@@ -62,23 +101,137 @@ function formatPlayCount(value?: number) {
   return formatCount(value)
 }
 
+function formatTime(totalSeconds: number) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return '00:00'
+  }
+
+  const safeSeconds = Math.floor(totalSeconds)
+  const minutes = Math.floor(safeSeconds / 60)
+  const seconds = safeSeconds % 60
+
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 function closeDialog() {
   emit('update:modelValue', false)
 }
 
-async function loadSource(mvId: string, resolution?: number) {
+function resetVideoTiming() {
+  actualDurationMs.value = null
+  videoCurrentTimeSeconds.value = 0
+  videoDurationSeconds.value = 0
+  videoSeekableEndSeconds.value = 0
+  isVideoPlaying.value = false
+}
+
+function pauseVideoPlayback() {
+  videoElement.value?.pause()
+  isVideoPlaying.value = false
+}
+
+function syncVideoTiming() {
+  const video = videoElement.value
+  const durationSeconds = video?.duration
+
+  if (!Number.isFinite(durationSeconds) || !durationSeconds || durationSeconds <= 0) {
+    actualDurationMs.value = null
+  } else {
+    actualDurationMs.value = Math.round(durationSeconds * 1000)
+    videoDurationSeconds.value = durationSeconds
+  }
+
+  const currentTimeSeconds = video?.currentTime
+
+  videoCurrentTimeSeconds.value =
+    Number.isFinite(currentTimeSeconds) && typeof currentTimeSeconds === 'number' && currentTimeSeconds >= 0
+      ? currentTimeSeconds
+      : 0
+
+  let seekableEndSeconds = 0
+
+  if (video?.seekable && video.seekable.length > 0) {
+    const nextSeekableEnd = video.seekable.end(video.seekable.length - 1)
+
+    if (Number.isFinite(nextSeekableEnd) && nextSeekableEnd > 0) {
+      seekableEndSeconds = nextSeekableEnd
+    }
+  }
+
+  videoSeekableEndSeconds.value = seekableEndSeconds
+  isVideoPlaying.value = Boolean(video && !video.paused && !video.ended)
+}
+
+function seekVideo(event: Event) {
+  const input = event.target as HTMLInputElement | null
+
+  if (!input || !videoElement.value) {
+    return
+  }
+
+  const nextTimeSeconds = Number(input.value)
+
+  if (!Number.isFinite(nextTimeSeconds) || nextTimeSeconds < 0) {
+    return
+  }
+
+  const safeTime = Math.min(nextTimeSeconds, Math.max(resolvedVideoDurationSeconds.value, 0))
+
+  videoElement.value.currentTime = safeTime
+  videoCurrentTimeSeconds.value = safeTime
+}
+
+function syncVideoPlaybackState() {
+  isVideoPlaying.value = Boolean(videoElement.value && !videoElement.value.paused && !videoElement.value.ended)
+}
+
+async function toggleVideoPlay() {
+  if (!videoElement.value) {
+    return
+  }
+
+  if (videoElement.value.paused || videoElement.value.ended) {
+    await videoElement.value.play()
+    return
+  }
+
+  videoElement.value.pause()
+}
+
+// loadSource 只负责“当前 MV 在某个清晰度下的视频地址”。
+// 详情和播放地址拆开请求，是因为切换清晰度时不需要重新拉一遍详情。
+async function loadSource(mvId: string, resolution?: number, token = requestToken) {
   sourceLoading.value = true
 
   try {
-    source.value = await getMvPlaybackSource(mvId, resolution)
-    selectedResolution.value = source.value.resolution
+    const nextSource = await getMvPlaybackSource(mvId, resolution)
+
+    if (token !== requestToken) {
+      return
+    }
+
+    pauseVideoPlayback()
+    source.value = nextSource
+    selectedResolution.value = nextSource.resolution
+    error.value = ''
+    resetVideoTiming()
   } catch (err) {
+    if (token !== requestToken) {
+      return
+    }
+
     error.value = err instanceof Error ? err.message : 'MV 视频地址加载失败'
   } finally {
-    sourceLoading.value = false
+    if (token === requestToken) {
+      sourceLoading.value = false
+    }
   }
 }
 
+// loadDialogData 是弹层打开后的完整加载流程：
+// 1. 清空旧状态
+// 2. 拉详情
+// 3. 根据默认清晰度再去拿视频播放地址
 async function loadDialogData(mvId: string) {
   const token = ++requestToken
 
@@ -99,7 +252,7 @@ async function loadDialogData(mvId: string) {
     detail.value = nextDetail
     selectedResolution.value = nextDetail.defaultResolution
 
-    await loadSource(mvId, nextDetail.defaultResolution)
+    await loadSource(mvId, nextDetail.defaultResolution, token)
   } catch (err) {
     if (token !== requestToken) {
       return
@@ -113,6 +266,7 @@ async function loadDialogData(mvId: string) {
   }
 }
 
+// 清晰度切换只更新播放源，不改详情数据。
 async function switchResolution(resolution: number) {
   const mvId = props.mv?.id
 
@@ -120,9 +274,10 @@ async function switchResolution(resolution: number) {
     return
   }
 
-  await loadSource(mvId, resolution)
+  await loadSource(mvId, resolution, requestToken)
 }
 
+// 支持按 Esc 关闭弹层，保持和常见对话框交互一致。
 function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && props.modelValue) {
     closeDialog()
@@ -132,6 +287,7 @@ function handleKeydown(event: KeyboardEvent) {
 watch(
   () => props.modelValue,
   (isOpen) => {
+    // 打开时锁定页面滚动，关闭时恢复之前状态。
     if (typeof document !== 'undefined') {
       if (isOpen) {
         previousBodyOverflow = document.body.style.overflow
@@ -141,12 +297,16 @@ watch(
       }
     }
 
+    // 弹层刚打开时，以当前传入的 mv.id 为准加载内容。
     if (isOpen && props.mv?.id) {
       void loadDialogData(props.mv.id)
     }
 
+    // 关闭时把 requestToken 前推，所有正在返回的旧请求都会自动失效。
     if (!isOpen) {
       requestToken += 1
+      pauseVideoPlayback()
+      resetVideoTiming()
     }
   },
 )
@@ -154,12 +314,16 @@ watch(
 watch(
   () => props.mv?.id,
   (mvId) => {
+    // 如果弹层已经开着，又切换到了另一支 MV，立即重新加载。
     if (props.modelValue && mvId) {
+      pauseVideoPlayback()
+      resetVideoTiming()
       void loadDialogData(mvId)
     }
   },
 )
 
+// 直接挂 window 事件，是因为 Teleport 后的弹层不一定天然拿到焦点。
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', handleKeydown)
 }
@@ -168,6 +332,8 @@ onBeforeUnmount(() => {
   if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', handleKeydown)
   }
+
+  pauseVideoPlayback()
 
   if (typeof document !== 'undefined') {
     document.body.style.overflow = previousBodyOverflow
@@ -186,21 +352,72 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="mv-dialog__media-shell">
-          <div v-if="!error" class="mv-dialog__video-wrap">
-            <video
-              v-if="source?.streamUrl"
-              class="mv-dialog__video"
-              :poster="displayCover || undefined"
-              :src="source.streamUrl"
-              controls
-              playsinline
-              preload="metadata"
-            ></video>
-            <div v-else class="mv-dialog__video-placeholder" :style="displayCover ? { backgroundImage: `url('${displayCover}')` } : undefined">
-              <div class="mv-dialog__video-placeholder-overlay"></div>
-              <span>{{ sourceLoading || loading ? '正在准备视频...' : '等待可用视频地址' }}</span>
+          <template v-if="!error">
+            <div class="mv-dialog__video-wrap">
+              <template v-if="source?.streamUrl">
+                <video
+                  :key="source.streamUrl"
+                  ref="videoElement"
+                  class="mv-dialog__video"
+                  :poster="displayCover || undefined"
+                  :src="source.streamUrl"
+                  playsinline
+                  preload="metadata"
+                  @click="toggleVideoPlay"
+                  @canplay="syncVideoTiming"
+                  @durationchange="syncVideoTiming"
+                  @emptied="resetVideoTiming"
+                  @ended="syncVideoPlaybackState"
+                  @error="resetVideoTiming"
+                  @loadedmetadata="syncVideoTiming"
+                  @pause="syncVideoPlaybackState"
+                  @play="syncVideoPlaybackState"
+                  @playing="syncVideoPlaybackState"
+                  @progress="syncVideoTiming"
+                  @seeked="syncVideoTiming"
+                  @timeupdate="syncVideoTiming"
+                  @waiting="syncVideoPlaybackState"
+                ></video>
+                <button
+                  v-if="!isVideoPlaying"
+                  class="mv-dialog__play-overlay"
+                  type="button"
+                  :aria-label="videoCurrentTimeSeconds > 0 ? '继续播放 MV' : '播放 MV'"
+                  @click="toggleVideoPlay"
+                >
+                  <Play class="mv-dialog__play-overlay-icon" :stroke-width="2.2" />
+                </button>
+              </template>
+              <div v-else class="mv-dialog__video-placeholder" :style="displayCover ? { backgroundImage: `url('${displayCover}')` } : undefined">
+                <div class="mv-dialog__video-placeholder-overlay"></div>
+                <span>{{ sourceLoading || loading ? '正在准备视频...' : '等待可用视频地址' }}</span>
+              </div>
             </div>
-          </div>
+
+            <div v-if="source?.streamUrl" class="mv-dialog__timeline">
+              <button
+                class="mv-dialog__transport"
+                type="button"
+                :aria-label="isVideoPlaying ? '暂停 MV' : '播放 MV'"
+                @click="toggleVideoPlay"
+              >
+                <Pause v-if="isVideoPlaying" class="mv-dialog__transport-icon" :stroke-width="2.1" />
+                <Play v-else class="mv-dialog__transport-icon mv-dialog__transport-icon--play" :stroke-width="2.1" />
+              </button>
+              <span class="mv-dialog__time">{{ videoCurrentTimeLabel }}</span>
+              <input
+                class="mv-dialog__range"
+                :style="{ '--mv-progress': `${videoProgressPercent}%` }"
+                type="range"
+                min="0"
+                :max="Math.max(resolvedVideoDurationSeconds, 0)"
+                step="0.1"
+                :value="Math.min(videoCurrentTimeSeconds, Math.max(resolvedVideoDurationSeconds, 0))"
+                @input="seekVideo"
+              />
+              <span class="mv-dialog__time">{{ videoDurationLabel }}</span>
+            </div>
+          </template>
 
           <div v-else class="mv-dialog__error">
             {{ error }}
@@ -330,6 +547,9 @@ onBeforeUnmount(() => {
 }
 
 .mv-dialog__media-shell {
+  align-self: start;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border-radius: 24px;
   background: rgba(7, 10, 24, 0.72);
@@ -337,9 +557,10 @@ onBeforeUnmount(() => {
 }
 
 .mv-dialog__video-wrap {
+  flex: 0 0 auto;
   position: relative;
   aspect-ratio: 16 / 9;
-  min-height: 100%;
+  min-height: 0;
 }
 
 .mv-dialog__video {
@@ -347,6 +568,31 @@ onBeforeUnmount(() => {
   height: 100%;
   display: block;
   background: #03040a;
+  cursor: pointer;
+}
+
+.mv-dialog__play-overlay {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 74px;
+  height: 74px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(8, 10, 22, 0.72);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+}
+
+.mv-dialog__play-overlay-icon {
+  width: 22px;
+  height: 22px;
+  margin-left: 3px;
 }
 
 .mv-dialog__video-placeholder,
@@ -384,6 +630,83 @@ onBeforeUnmount(() => {
 
 .mv-dialog__error {
   color: #ffd8e6;
+}
+
+.mv-dialog__timeline {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(12, 15, 34, 0.78), rgba(9, 12, 27, 0.94));
+}
+
+.mv-dialog__transport {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 91, 190, 0.96), rgba(152, 83, 255, 0.92));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(189, 73, 244, 0.28);
+}
+
+.mv-dialog__transport-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.mv-dialog__transport-icon--play {
+  margin-left: 2px;
+}
+
+.mv-dialog__time {
+  color: rgba(241, 245, 255, 0.76);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-dialog__range {
+  --mv-progress: 0%;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  outline: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 118, 209, 0.96) 0%,
+      rgba(157, 110, 255, 0.96) var(--mv-progress),
+      rgba(255, 255, 255, 0.16) var(--mv-progress),
+      rgba(255, 255, 255, 0.16) 100%
+    );
+}
+
+.mv-dialog__range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(240, 77, 255, 0.22);
+}
+
+.mv-dialog__range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(240, 77, 255, 0.22);
 }
 
 .mv-dialog__meta {
@@ -537,6 +860,11 @@ onBeforeUnmount(() => {
 
   .mv-dialog__stats {
     grid-template-columns: 1fr;
+  }
+
+  .mv-dialog__timeline {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }
 </style>

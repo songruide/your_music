@@ -1,144 +1,32 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getSongPlaybackSource, type SongPlaybackSource } from '@/api/player'
+import { throttle } from '@/utils/timing'
+import {
+  applyAudioVolume,
+  createAudioDiagnostics,
+  lockAudioPlaybackSettings,
+  readAudioDurationSeconds,
+  restoreAudioSeek,
+} from './player/audio'
+import {
+  DEFAULT_VOLUME,
+  INTERACTIVE_PERSIST_INTERVAL_MS,
+  LOCKED_PLAYBACK_RATE,
+  PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS,
+} from './player/constants'
+import { readPersistedPlayerState, writePersistedPlayerState } from './player/persistence'
+import type { AudioDiagnostics, PersistedPlayerState, PlayerTrack } from './player/types'
+import {
+  clamp,
+  cloneTrack,
+  formatTime,
+  getSafeTrackTime,
+  getTrackDurationSeconds,
+  isSourceExpired,
+} from './player/utils'
 
-export interface PlayerTrackSourceMeta {
-  bitrate?: number
-  directUrl?: string
-  level?: string
-  sampleRate?: number
-  sourceMode?: string
-  streamUrl?: string
-  type?: string
-}
-
-export interface PlayerTrack {
-  id: string
-  title: string
-  artist: string
-  coverUrl: string
-  duration: string
-  durationMs?: number
-  audioUrl?: string
-  sourceMeta?: PlayerTrackSourceMeta
-  sourceExpiresAt?: number
-}
-
-interface PersistedPlayerState {
-  currentIndex: number
-  currentTimeSeconds: number
-  isMuted: boolean
-  queue: PlayerTrack[]
-  volume: number
-}
-
-interface AudioDiagnostics {
-  currentSrc: string
-  networkState: number
-  playbackRate: number
-  readyState: number
-}
-
-type PitchAwareAudio = HTMLAudioElement & {
-  mozPreservesPitch?: boolean
-  preservesPitch?: boolean
-  webkitPreservesPitch?: boolean
-}
-
-const DEFAULT_VOLUME = 0.72
-const LOCKED_PLAYBACK_RATE = 1
-const PLAYER_STORAGE_KEY = 'your-music-player'
-const PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS = 3
-const SOURCE_REFRESH_BUFFER_MS = 15_000
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max)
-}
-
-function formatTime(totalSeconds: number) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return '00:00'
-  }
-
-  const seconds = Math.floor(totalSeconds)
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
-}
-
-function cloneTrack(track: PlayerTrack): PlayerTrack {
-  return { ...track }
-}
-
-function canUseStorage() {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
-}
-
-function isPlayerTrack(value: unknown): value is PlayerTrack {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const track = value as Partial<PlayerTrack>
-
-  return (
-    typeof track.id === 'string' &&
-    typeof track.title === 'string' &&
-    typeof track.artist === 'string' &&
-    typeof track.coverUrl === 'string' &&
-    typeof track.duration === 'string'
-  )
-}
-
-function readPersistedState(): PersistedPlayerState | null {
-  if (!canUseStorage()) {
-    return null
-  }
-
-  try {
-    const raw = window.localStorage.getItem(PLAYER_STORAGE_KEY)
-
-    if (!raw) {
-      return null
-    }
-
-    const parsed = JSON.parse(raw) as Partial<PersistedPlayerState>
-    const queue = Array.isArray(parsed.queue)
-      ? parsed.queue
-          .filter(isPlayerTrack)
-          .map((track) => {
-            const nextTrack = cloneTrack(track)
-
-            if (!isPreferredAudioUrl(nextTrack.audioUrl)) {
-              delete nextTrack.audioUrl
-              delete nextTrack.sourceExpiresAt
-            }
-
-            return nextTrack
-          })
-      : []
-    const volume = typeof parsed.volume === 'number' ? clamp(parsed.volume, 0, 1) : DEFAULT_VOLUME
-
-    return {
-      currentIndex: typeof parsed.currentIndex === 'number' ? parsed.currentIndex : -1,
-      currentTimeSeconds: typeof parsed.currentTimeSeconds === 'number' ? Math.max(parsed.currentTimeSeconds, 0) : 0,
-      isMuted: Boolean(parsed.isMuted),
-      queue,
-      volume,
-    }
-  } catch {
-    return null
-  }
-}
-
-function isSourceExpired(expiresAt?: number) {
-  return typeof expiresAt === 'number' && Date.now() >= expiresAt - SOURCE_REFRESH_BUFFER_MS
-}
-
-function isPreferredAudioUrl(url?: string) {
-  return typeof url === 'string' && url.startsWith('/api/player/stream?')
-}
+export type { PlayerTrack, PlayerTrackSourceMeta } from './player/types'
 
 export const usePlayerStore = defineStore('player', () => {
   const currentTrack = ref<PlayerTrack | null>(null)
@@ -154,12 +42,7 @@ export const usePlayerStore = defineStore('player', () => {
   const currentIndex = ref(-1)
 
   const audio = typeof window !== 'undefined' ? new Audio() : null
-  const audioDiagnostics = ref<AudioDiagnostics>({
-    currentSrc: '',
-    networkState: 0,
-    playbackRate: 1,
-    readyState: 0,
-  })
+  const audioDiagnostics = ref<AudioDiagnostics>(createAudioDiagnostics(audio))
   const sourceCache = new Map<string, { expiresAt?: number; url: string }>()
   let audioReady = false
   let requestToken = 0
@@ -168,6 +51,13 @@ export const usePlayerStore = defineStore('player', () => {
   let lastVolumeBeforeMute = DEFAULT_VOLUME
 
   const currentTime = computed(() => formatTime(currentTimeSeconds.value))
+  const knownDurationSeconds = computed(() => {
+    if (durationSeconds.value > 0) {
+      return durationSeconds.value
+    }
+
+    return getTrackDurationSeconds(currentTrack.value)
+  })
   const durationLabel = computed(() => {
     if (durationSeconds.value > 0) {
       return formatTime(durationSeconds.value)
@@ -176,12 +66,7 @@ export const usePlayerStore = defineStore('player', () => {
     return currentTrack.value?.duration ?? '00:00'
   })
   const progressPercent = computed(() => {
-    const totalSeconds =
-      durationSeconds.value > 0
-        ? durationSeconds.value
-        : currentTrack.value?.durationMs
-          ? currentTrack.value.durationMs / 1000
-          : 0
+    const totalSeconds = knownDurationSeconds.value
 
     if (totalSeconds <= 0) {
       return 0
@@ -214,47 +99,15 @@ export const usePlayerStore = defineStore('player', () => {
   }))
 
   function applyVolumeState() {
-    if (!audio) {
-      return
-    }
-
-    audio.volume = isMuted.value ? 0 : volume.value
+    applyAudioVolume(audio, isMuted.value, volume.value)
   }
 
   function applyPlaybackSettings() {
-    if (!audio) {
-      return
-    }
-
-    audio.playbackRate = LOCKED_PLAYBACK_RATE
-    audio.defaultPlaybackRate = LOCKED_PLAYBACK_RATE
-
-    const pitchAwareAudio = audio as PitchAwareAudio
-
-    if ('preservesPitch' in pitchAwareAudio) {
-      pitchAwareAudio.preservesPitch = true
-    }
-
-    if ('mozPreservesPitch' in pitchAwareAudio) {
-      pitchAwareAudio.mozPreservesPitch = true
-    }
-
-    if ('webkitPreservesPitch' in pitchAwareAudio) {
-      pitchAwareAudio.webkitPreservesPitch = true
-    }
+    lockAudioPlaybackSettings(audio)
   }
 
   function syncAudioDiagnostics() {
-    if (!audio) {
-      return
-    }
-
-    audioDiagnostics.value = {
-      currentSrc: audio.currentSrc,
-      networkState: audio.networkState,
-      playbackRate: audio.playbackRate,
-      readyState: audio.readyState,
-    }
+    audioDiagnostics.value = createAudioDiagnostics(audio)
   }
 
   function assignSourceMeta(track: PlayerTrack, source: SongPlaybackSource) {
@@ -270,38 +123,30 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function persistState(force = false) {
-    if (!canUseStorage()) {
-      return
-    }
-
     const roundedSeconds = Math.floor(currentTimeSeconds.value)
 
     if (!force && roundedSeconds <= lastPersistedSecond) {
       return
     }
 
-    const safeQueue = queue.value.map((track) => {
-      const nextTrack = cloneTrack(track)
-
-      if (isSourceExpired(nextTrack.sourceExpiresAt)) {
-        delete nextTrack.audioUrl
-        delete nextTrack.sourceExpiresAt
-      }
-
-      return nextTrack
-    })
-
     const payload: PersistedPlayerState = {
       currentIndex: currentIndex.value,
       currentTimeSeconds: currentTimeSeconds.value,
       isMuted: isMuted.value,
-      queue: safeQueue,
+      queue: queue.value,
       volume: volume.value,
     }
 
-    window.localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(payload))
-    lastPersistedSecond = roundedSeconds
+    if (writePersistedPlayerState(payload)) {
+      lastPersistedSecond = roundedSeconds
+    }
   }
+
+  // 进度条和音量滑杆会在拖动时连续触发，保留即时反馈，
+  // 但把本地持久化频率压低，避免频繁写 localStorage。
+  const persistInteractiveState = throttle(() => {
+    persistState(true)
+  }, INTERACTIVE_PERSIST_INTERVAL_MS)
 
   function hydrateSourceCache(tracks: PlayerTrack[]) {
     for (const track of tracks) {
@@ -317,21 +162,45 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function syncDuration() {
-    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+    const nextDurationSeconds = readAudioDurationSeconds(audio)
+
+    if (nextDurationSeconds === null) {
       return
     }
 
-    durationSeconds.value = audio.duration
+    durationSeconds.value = nextDurationSeconds
+  }
+
+  function syncTrackPlaybackState(track: PlayerTrack | null, nextTimeSeconds = 0) {
+    currentTrack.value = track
+    durationSeconds.value = getTrackDurationSeconds(track)
+    currentTimeSeconds.value = getSafeTrackTime(track, nextTimeSeconds)
+    pendingSeekTimeSeconds = currentTimeSeconds.value
+  }
+
+  function getTrackAtIndex(index: number) {
+    if (index < 0) {
+      return null
+    }
+
+    return queue.value[index] ?? null
+  }
+
+  function clearPlaybackState() {
+    currentIndex.value = -1
+    syncTrackPlaybackState(null)
+    error.value = ''
+    isLoading.value = false
+    isPlaying.value = false
   }
 
   function restorePendingSeek() {
-    if (!audio || pendingSeekTimeSeconds <= 0 || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+    const nextTime = restoreAudioSeek(audio, pendingSeekTimeSeconds)
+
+    if (nextTime === null) {
       return
     }
 
-    const nextTime = clamp(pendingSeekTimeSeconds, 0, Math.max(audio.duration - 0.25, 0))
-
-    audio.currentTime = nextTime
     currentTimeSeconds.value = nextTime
     pendingSeekTimeSeconds = 0
   }
@@ -428,23 +297,24 @@ export const usePlayerStore = defineStore('player', () => {
   function setQueue(tracks: PlayerTrack[], startIndex = 0) {
     queue.value = tracks.map(cloneTrack)
     hydrateSourceCache(queue.value)
-    currentIndex.value = queue.value.length === 0 ? -1 : clamp(startIndex, 0, queue.value.length - 1)
+
+    if (queue.value.length === 0) {
+      clearPlaybackState()
+      return
+    }
+
+    currentIndex.value = clamp(startIndex, 0, queue.value.length - 1)
   }
 
   function seekToSeconds(nextSeconds: number) {
-    const totalSeconds =
-      durationSeconds.value > 0
-        ? durationSeconds.value
-        : currentTrack.value?.durationMs
-          ? currentTrack.value.durationMs / 1000
-          : 0
+    const totalSeconds = knownDurationSeconds.value
 
     const safeTime = totalSeconds > 0 ? clamp(nextSeconds, 0, totalSeconds) : Math.max(nextSeconds, 0)
 
     currentTimeSeconds.value = safeTime
 
     if (!audio) {
-      persistState(true)
+      persistInteractiveState()
       return
     }
 
@@ -454,7 +324,7 @@ export const usePlayerStore = defineStore('player', () => {
       pendingSeekTimeSeconds = safeTime
     }
 
-    persistState(true)
+    persistInteractiveState()
   }
 
   async function resolveTrackSource(track: PlayerTrack) {
@@ -503,12 +373,9 @@ export const usePlayerStore = defineStore('player', () => {
     const token = ++requestToken
     const startTimeSeconds = Math.max(options.startTimeSeconds ?? 0, 0)
 
-    currentTrack.value = track
-    currentTimeSeconds.value = startTimeSeconds
-    durationSeconds.value = track.durationMs ? track.durationMs / 1000 : 0
+    syncTrackPlaybackState(track, startTimeSeconds)
     error.value = ''
     isLoading.value = true
-    pendingSeekTimeSeconds = startTimeSeconds
     persistState(true)
 
     try {
@@ -543,21 +410,13 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function playTrack(track: PlayerTrack) {
-    setQueue([track], 0)
-
-    const [nextTrack] = queue.value
-
-    if (!nextTrack) {
-      return
-    }
-
-    await startPlayback(nextTrack)
+    await playQueue([track], 0)
   }
 
   async function playQueue(tracks: PlayerTrack[], startIndex = 0) {
     setQueue(tracks, startIndex)
 
-    const nextTrack = queue.value[currentIndex.value]
+    const nextTrack = getTrackAtIndex(currentIndex.value)
 
     if (!nextTrack) {
       return
@@ -574,7 +433,7 @@ export const usePlayerStore = defineStore('player', () => {
     const safeIndex = clamp(index, 0, queue.value.length - 1)
     currentIndex.value = safeIndex
 
-    const nextTrack = queue.value[safeIndex]
+    const nextTrack = getTrackAtIndex(safeIndex)
 
     if (!nextTrack) {
       return
@@ -646,12 +505,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function seekToPercent(nextPercent: number) {
-    const totalSeconds =
-      durationSeconds.value > 0
-        ? durationSeconds.value
-        : currentTrack.value?.durationMs
-          ? currentTrack.value.durationMs / 1000
-          : 0
+    const totalSeconds = knownDurationSeconds.value
 
     if (totalSeconds <= 0) {
       return
@@ -673,7 +527,7 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     applyVolumeState()
-    persistState(true)
+    persistInteractiveState()
   }
 
   function toggleMute() {
@@ -694,7 +548,7 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function restoreState() {
-    const persistedState = readPersistedState()
+    const persistedState = readPersistedPlayerState()
 
     if (!persistedState) {
       return
@@ -705,14 +559,14 @@ export const usePlayerStore = defineStore('player', () => {
     isMuted.value = persistedState.isMuted
     queue.value = persistedState.queue.map(cloneTrack)
     hydrateSourceCache(queue.value)
-    currentIndex.value = queue.value.length === 0 ? -1 : clamp(persistedState.currentIndex, 0, queue.value.length - 1)
-    currentTrack.value = currentIndex.value >= 0 ? queue.value[currentIndex.value] ?? null : null
-    durationSeconds.value = currentTrack.value?.durationMs ? currentTrack.value.durationMs / 1000 : 0
-    currentTimeSeconds.value =
-      currentTrack.value && currentTrack.value.durationMs
-        ? clamp(persistedState.currentTimeSeconds, 0, currentTrack.value.durationMs / 1000)
-        : 0
-    pendingSeekTimeSeconds = currentTimeSeconds.value
+
+    if (queue.value.length === 0) {
+      clearPlaybackState()
+      return
+    }
+
+    currentIndex.value = clamp(persistedState.currentIndex, 0, queue.value.length - 1)
+    syncTrackPlaybackState(getTrackAtIndex(currentIndex.value), persistedState.currentTimeSeconds)
   }
 
   ensureAudio()

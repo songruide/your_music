@@ -1,4 +1,4 @@
-import type { PlayerTrack } from '@/stores/player'
+import type { PlayerTrack } from '@/stores/player/types'
 
 // 这是“页面层歌曲数据”的最小输入模型。
 // 它故意没有直接复用 PlayerTrack，因为页面拿到的原始数据和播放器真正消费的数据

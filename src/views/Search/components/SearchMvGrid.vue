@@ -4,16 +4,27 @@ import type { SearchMv } from '@/api/search'
 import { formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, formatCompactPlayCount, handleSearchCoverError } from '../utils'
 
-// MV 区域和歌单卡片一样保持轻量，
-// 当前只关心搜索结果展示，后续扩展播放/详情时再由父层接管行为。
+// 这个组件只做“搜索结果里的 MV 卡片展示 + 抛出点击事件”。
+// 真正打开播放器、加载详情、切清晰度，都交给父层和 MvPlayerDialog 处理。
 defineProps<{
   mvs: SearchMv[]
+}>()
+
+// 只向外抛“用户点中了哪一支 MV”，不在子组件里直接依赖播放器状态。
+const emit = defineEmits<{
+  selectMv: [mv: SearchMv]
 }>()
 </script>
 
 <template>
   <section class="search-mv-grid">
-    <article v-for="mv in mvs" :key="mv.id" class="search-mv-card">
+    <button
+      v-for="mv in mvs"
+      :key="mv.id"
+      class="search-mv-card"
+      type="button"
+      @click="emit('selectMv', mv)"
+    >
       <div class="search-mv-card__media">
         <img
           class="search-mv-card__cover"
@@ -40,7 +51,7 @@ defineProps<{
           </div>
         </div>
       </div>
-    </article>
+    </button>
   </section>
 </template>
 
@@ -53,6 +64,11 @@ defineProps<{
 
 .search-mv-card {
   min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
 .search-mv-card__media {
@@ -77,6 +93,17 @@ defineProps<{
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 18px 32px rgba(5, 7, 24, 0.26);
   filter: saturate(1.04);
+}
+
+.search-mv-card:focus-visible {
+  outline: none;
+}
+
+.search-mv-card:focus-visible .search-mv-card__media {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 2px rgba(255, 126, 214, 0.28),
+    0 18px 32px rgba(5, 7, 24, 0.26);
 }
 
 .search-mv-card__cover {

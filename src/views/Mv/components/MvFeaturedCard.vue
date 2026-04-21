@@ -4,6 +4,8 @@ import { Play, Video } from 'lucide-vue-next'
 import type { MvFeaturedItem } from '@/api/mv'
 import { formatDurationMs } from '@/utils/playerTrack'
 
+// 远端封面图如果失效，卡片仍然要保持“像一张 MV 封面”而不是一块空白。
+// 这里用内联 SVG 做兜底，不依赖额外静态资源。
 const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23281772'/%3E%3Cstop offset='0.52' stop-color='%230f8ddf'/%3E%3Cstop offset='1' stop-color='%230f153f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='640' height='360' rx='36' fill='url(%23g)'/%3E%3Ccircle cx='490' cy='90' r='86' fill='rgba(255,255,255,.1)'/%3E%3Ccircle cx='136' cy='278' r='110' fill='rgba(217,61,255,.18)'/%3E%3Crect x='104' y='122' width='432' height='116' rx='22' fill='rgba(8,10,26,.38)' stroke='rgba(255,255,255,.14)'/%3E%3Cpolygon points='278,153 278,207 336,180' fill='rgba(255,255,255,.9)'/%3E%3C/svg%3E"
 
@@ -15,6 +17,8 @@ const emit = defineEmits<{
   select: [mv: MvFeaturedItem]
 }>()
 
+// artistLabel / playCountLabel 都是“展示态衍生数据”。
+// 提前在 script 里算好，模板会更干净，也方便后面统一修改展示规则。
 const artistLabel = computed(() => props.mv.artistNames.filter(Boolean).join(' / ') || '未知歌手')
 const playCountLabel = computed(() => formatPlayCount(props.mv.playCount))
 
@@ -34,6 +38,7 @@ function formatPlayCount(value?: number) {
   return String(Math.round(value))
 }
 
+// 只替换一次 fallback，避免 fallback 本身异常时进入无限 error 循环。
 function handleCoverError(event: Event) {
   const image = event.target as HTMLImageElement | null
 

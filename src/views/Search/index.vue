@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import type { MvPlaybackSeed } from '@/api/mv'
+import type { SearchMv } from '@/api/search'
+import MvPlayerDialog from '@/views/Mv/components/MvPlayerDialog.vue'
 import SearchMvGrid from './components/SearchMvGrid.vue'
 import SearchPlaylistGrid from './components/SearchPlaylistGrid.vue'
 import SearchSongTable from './components/SearchSongTable.vue'
@@ -6,8 +10,10 @@ import SearchToolbar from './components/SearchToolbar.vue'
 import { SEARCH_TYPE_OPTIONS } from './constants'
 import { useSearchPage } from './useSearchPage'
 
-// index.vue 现在只保留页面装配职责：
-// 取 composable 状态，然后按结果类型切到对应展示组件。
+// 搜索页本身只负责“页面装配”：
+// - 搜歌曲的逻辑交给 useSearchPage
+// - MV 播放逻辑复用现成的 MvPlayerDialog
+// 这样页面层不会把搜索状态和播放器状态搅在一起。
 const {
   activeType,
   activeTypeLabel,
@@ -34,6 +40,24 @@ const {
   totalPages,
   visibleItemCount,
 } = useSearchPage()
+
+// 这里复用和 MV 精选页同一套播放器弹层。
+// activeMv 保存当前点击的那张 MV 卡片的最小播放信息；
+// playerVisible 只关心弹层开关。
+const activeMv = ref<MvPlaybackSeed | null>(null)
+const playerVisible = ref(false)
+
+// 搜索结果里的 SearchMv 结构和播放器要求的最小结构并不完全同名，
+// 这里做一次轻量映射，让搜索页和精选页最终都走同一个播放器组件。
+function handleMvSelect(mv: SearchMv) {
+  activeMv.value = {
+    id: mv.id,
+    title: mv.name,
+    artistNames: mv.artistNames,
+    coverUrl: mv.coverUrl,
+  }
+  playerVisible.value = true
+}
 </script>
 
 <template>
@@ -78,12 +102,14 @@ const {
             @select-track="handleTrackSelect"
           />
           <SearchPlaylistGrid v-else-if="searchResult.type === 'playlist'" :playlists="playlistItems" />
-          <SearchMvGrid v-else :mvs="mvItems" />
+          <SearchMvGrid v-else :mvs="mvItems" @select-mv="handleMvSelect" />
         </div>
 
         <div v-if="loading" class="search-board__overlay">正在更新这一页结果...</div>
       </section>
     </article>
+
+    <MvPlayerDialog v-model="playerVisible" :mv="activeMv" />
   </section>
 </template>
 

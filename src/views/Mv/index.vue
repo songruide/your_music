@@ -10,6 +10,9 @@ import {
 import MvFeaturedCard from './components/MvFeaturedCard.vue'
 import MvPlayerDialog from './components/MvPlayerDialog.vue'
 
+// 这一组默认分类有两个作用：
+// 1. 首屏渲染时，在接口还没回来之前先让顶部 tab 和文案有稳定骨架
+// 2. 即使后端接口异常，页面也不会因为分类为空而完全失去结构
 const DEFAULT_CATEGORIES: MvFeaturedCategory[] = [
   {
     key: 'all',
@@ -33,6 +36,10 @@ const DEFAULT_CATEGORIES: MvFeaturedCategory[] = [
   },
 ]
 
+// categories / collectionInfo / activeCollection 共同描述“当前 MV 精选页顶部状态”。
+// categories: 所有可切换分组
+// collectionInfo: 当前分组文案
+// activeCollection: 当前真正处于激活状态的分组 key
 const categories = ref<MvFeaturedCategory[]>(DEFAULT_CATEGORIES)
 const collectionInfo = ref<MvFeaturedCollectionInfo>({
   key: 'all',
@@ -46,8 +53,12 @@ const error = ref('')
 const activeMv = ref<MvFeaturedItem | null>(null)
 const playerVisible = ref(false)
 
+// requestToken 用来防止“旧请求覆盖新请求”。
+// 比如用户连续快速点“全部 -> 官方 -> 现场”，最慢返回的旧请求不应该把最新页面状态冲掉。
 let requestToken = 0
 
+// 当前分组描述优先从 categories 里找，是为了让“顶部 tab 数据”和“说明文案”始终来自同一份数据源。
+// 如果 categories 还没回来，再退回 collectionInfo 里的描述。
 const collectionDescription = computed(() => {
   return (
     categories.value.find((item) => item.key === activeCollection.value)?.description ??
@@ -55,6 +66,9 @@ const collectionDescription = computed(() => {
   )
 })
 
+// loadFeatured 是当前页面的核心加载函数：
+// 传入目标分组 -> 拉接口 -> 刷新顶部文案和卡片列表。
+// 它不直接依赖点击事件，因此后面如果要做路由同步或记忆上次分组，也只需要继续复用这里。
 async function loadFeatured(collection: MvFeaturedCollection) {
   const token = ++requestToken
 
@@ -85,6 +99,8 @@ async function loadFeatured(collection: MvFeaturedCollection) {
   }
 }
 
+// 用户切换顶部分类时，先做一个“小优化”：
+// 如果点的就是当前分组，且页面已经有数据，就直接返回，避免重复请求和闪烁。
 function switchCollection(collection: MvFeaturedCollection) {
   if (collection === activeCollection.value && items.value.length > 0) {
     return
@@ -94,11 +110,14 @@ function switchCollection(collection: MvFeaturedCollection) {
   void loadFeatured(collection)
 }
 
+// 点击卡片时这里只做一件事：把当前选中的 MV 放进播放器弹层状态里。
+// 具体详情拉取、清晰度选择、视频播放都交给 MvPlayerDialog 自己处理。
 function openMvResult(mv: MvFeaturedItem) {
   activeMv.value = mv
   playerVisible.value = true
 }
 
+// 首屏进入时默认加载“全部”分组。
 onMounted(() => {
   void loadFeatured(activeCollection.value)
 })
