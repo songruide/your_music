@@ -20,6 +20,13 @@ export interface PlayerTrack {
   sourceExpiresAt?: number
 }
 
+export interface RecentPlayerTrack extends PlayerTrack {
+  isFavorite: boolean
+  lastPlayedAt: number
+  lastTimeSeconds: number
+  playCount: number
+}
+
 export interface PersistedPlayerState {
   currentIndex: number
   currentTimeSeconds: number

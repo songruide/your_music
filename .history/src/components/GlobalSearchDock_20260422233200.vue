@@ -94,7 +94,7 @@ watch(
 }
 
 .global-search__form {
-  width: clamp(10px, 16vw, 150px);
+  width: clamp(180px, 20vw, 232px);
   max-width: 100%;
 }
 

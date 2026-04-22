@@ -51,6 +51,31 @@ function isApiEnvelope<T>(payload: unknown): payload is ApiEnvelope<T> {
   return isPlainObject(payload) && ('code' in payload || 'data' in payload || 'message' in payload)
 }
 
+async function readJsonPayload<T>(response: Response, path: string) {
+  const contentType = response.headers.get('content-type') ?? ''
+  const rawText = await response.text()
+
+  if (!rawText) {
+    return undefined as T
+  }
+
+  if (!contentType.includes('application/json')) {
+    const preview = rawText.slice(0, 80).trim()
+
+    if (preview.startsWith('<')) {
+      throw new Error(`接口 ${path} 返回了 HTML，不是 JSON。请检查 API 服务或 Vite 预览环境。`)
+    }
+
+    throw new Error(`接口 ${path} 返回了非 JSON 内容：${preview}`)
+  }
+
+  try {
+    return JSON.parse(rawText) as T
+  } catch {
+    throw new Error(`接口 ${path} 返回的 JSON 解析失败`)
+  }
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { params, body, headers: rawHeaders, ...init } = options
   const headers = new Headers(rawHeaders)
@@ -65,7 +90,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     return undefined as T
   }
 
-  const payload = (await response.json()) as unknown
+  const payload = (await readJsonPayload<unknown>(response, path)) as unknown
 
   if (!response.ok) {
     if (isApiEnvelope(payload) && payload.message) {

@@ -26,7 +26,7 @@ import {
   isSourceExpired,
 } from './player/utils'
 
-export type { PlayerTrack, PlayerTrackSourceMeta } from './player/types'
+export type { PlayerTrack, PlayerTrackSourceMeta, RecentPlayerTrack } from './player/types'
 
 export const usePlayerStore = defineStore('player', () => {
   const currentTrack = ref<PlayerTrack | null>(null)

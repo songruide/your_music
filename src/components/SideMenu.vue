@@ -67,7 +67,12 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
     </div>
 
     <div class="menu__panel">
-      <section v-for="section in sections" :key="section.title" class="menu__section">
+      <section
+        v-for="section in sections"
+        :key="section.title"
+        class="menu__section"
+        :class="{ 'menu__section--tail': section.title === '系统' }"
+      >
         <p class="menu__title">{{ section.title }}</p>
 
         <div class="menu__group">
@@ -96,6 +101,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
           </template>
         </div>
       </section>
+
     </div>
   </nav>
 </template>
@@ -153,7 +159,7 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
   margin-top: 18px;
 }
 
-.menu__section:last-child {
+.menu__section--tail {
   margin-top: auto;
   padding-top: 18px;
 }

@@ -2,6 +2,12 @@
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
+import AuthDialog from '@/components/AuthDialog.vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+
+void authStore.initialize()
 </script>
 
 <template>
@@ -30,6 +36,8 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
     <div class="layout__player">
       <PlayerBar />
     </div>
+
+    <AuthDialog />
   </div>
 </template>
 

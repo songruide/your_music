@@ -5,7 +5,7 @@ import mvsRoutes from './routes/mvs.js'
 import playerRoutes from './routes/player.js'
 import playlistsRoutes from './routes/playlists.js'
 import searchRoutes from './routes/search.js'
-import authRoutes from './routes/auth.js'
+
 const app = express()
 
 app.use(express.json())
@@ -15,6 +15,5 @@ app.use(playlistsRoutes)
 app.use(searchRoutes)
 app.use(mvsRoutes)
 app.use(playerRoutes)
-app.use(authRoutes)
 
 export default app
