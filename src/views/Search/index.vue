@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { SongCommentSeed } from '@/api/comment'
 import type { MvPlaybackSeed } from '@/api/mv'
-import type { SearchMv } from '@/api/search'
+import type { SearchMv, SearchSong } from '@/api/search'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import MvPlayerDialog from '@/views/Mv/components/MvPlayerDialog.vue'
 import SearchMvGrid from './components/SearchMvGrid.vue'
 import SearchPlaylistGrid from './components/SearchPlaylistGrid.vue'
@@ -46,6 +48,8 @@ const {
 // playerVisible 只关心弹层开关。
 const activeMv = ref<MvPlaybackSeed | null>(null)
 const playerVisible = ref(false)
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 // 搜索结果里的 SearchMv 结构和播放器要求的最小结构并不完全同名，
 // 这里做一次轻量映射，让搜索页和精选页最终都走同一个播放器组件。
@@ -57,6 +61,18 @@ function handleMvSelect(mv: SearchMv) {
     coverUrl: mv.coverUrl,
   }
   playerVisible.value = true
+}
+
+function handleSongComments(song: SearchSong) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 </script>
 
@@ -100,6 +116,7 @@ function handleMvSelect(mv: SearchMv) {
             :songs="songItems"
             :start-index="startIndex"
             @select-track="handleTrackSelect"
+            @show-comments="handleSongComments"
           />
           <SearchPlaylistGrid v-else-if="searchResult.type === 'playlist'" :playlists="playlistItems" />
           <SearchMvGrid v-else :mvs="mvItems" @select-mv="handleMvSelect" />
@@ -110,6 +127,7 @@ function handleMvSelect(mv: SearchMv) {
     </article>
 
     <MvPlayerDialog v-model="playerVisible" :mv="activeMv" />
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 

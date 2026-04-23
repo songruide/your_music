@@ -1,6 +1,7 @@
 import express from 'express'
 import albumsRoutes from './routes/albums.js'
 import artistsRoutes from './routes/artists.js'
+import commentsRoutes from './routes/comments.js'
 import healthRoutes from './routes/health.js'
 import homeRoutes from './routes/home.js'
 import mvsRoutes from './routes/mvs.js'
@@ -13,6 +14,7 @@ const app = express()
 app.use(express.json())
 app.use(albumsRoutes)
 app.use(artistsRoutes)
+app.use(commentsRoutes)
 app.use(healthRoutes)
 app.use(homeRoutes)
 app.use(playlistsRoutes)

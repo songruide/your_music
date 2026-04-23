@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Download, Heart, Info, Play, Share2, Shuffle } from 'lucide-vue-next'
+import { Download, Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useRoute } from 'vue-router'
 import { getPlaylistDetail, type PlaylistDetail, type PlaylistTrack } from '@/api/playlist'
 import { usePlayerStore } from '@/stores/player'
@@ -20,6 +22,8 @@ const error = ref('')
 const playlist = ref<PlaylistDetail | null>(null)
 const actionHint = ref('')
 const isLiked = ref(false)
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 let requestToken = 0
 const clearActionHint = debounce(() => {
@@ -174,6 +178,18 @@ function playRandom() {
 function toggleLiked() {
   isLiked.value = !isLiked.value
   showActionHint(isLiked.value ? '已加入喜欢' : '已取消喜欢')
+}
+
+function openSongComments(song: PlaylistTrack) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl || playlist.value?.coverUrl || FALLBACK_COVER_URL,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 
 async function sharePlaylist() {
@@ -394,10 +410,10 @@ onBeforeUnmount(() => {
               <button
                 class="playlist-table__action"
                 type="button"
-                title="歌曲详情稍后支持"
-                @click.stop="showActionHint('歌曲详情稍后支持')"
+                title="查看歌曲评论"
+                @click.stop="openSongComments(song)"
               >
-                <Info :size="14" :stroke-width="1.95" />
+                <MessageSquareMore :size="14" :stroke-width="1.95" />
               </button>
               <button
                 class="playlist-table__action"
@@ -412,6 +428,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </template>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 

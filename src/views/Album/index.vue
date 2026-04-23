@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Heart, Play, Share2, Shuffle } from 'lucide-vue-next'
+import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useRoute } from 'vue-router'
 import { getAlbumDetail, type AlbumDetail, type AlbumTrack } from '@/api/album'
 import { usePlayerStore } from '@/stores/player'
@@ -20,6 +22,8 @@ const error = ref('')
 const album = ref<AlbumDetail | null>(null)
 const actionHint = ref('')
 const isLiked = ref(false)
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 let requestToken = 0
 const clearActionHint = debounce(() => {
@@ -168,6 +172,18 @@ function toggleLiked() {
   showActionHint(isLiked.value ? '已收藏专辑' : '已取消收藏')
 }
 
+function openSongComments(song: AlbumTrack) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl || album.value?.coverUrl || FALLBACK_COVER_URL,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
+}
+
 async function shareAlbum() {
   if (typeof window === 'undefined' || !navigator.clipboard) {
     showActionHint('当前环境暂不支持复制链接')
@@ -302,6 +318,7 @@ onBeforeUnmount(() => {
           <div class="album-table__cell">歌曲</div>
           <div class="album-table__cell album-table__cell--artist">歌手</div>
           <div class="album-table__cell album-table__cell--numeric">时长</div>
+          <div class="album-table__cell album-table__cell--actions">操作</div>
         </div>
 
         <div v-if="album.songs.length === 0" class="album-table__empty">
@@ -357,10 +374,22 @@ onBeforeUnmount(() => {
             <div class="album-table__cell album-table__cell--numeric">
               {{ formatDurationMs(song.duration) }}
             </div>
+            <div class="album-table__cell album-table__cell--actions">
+              <button
+                class="album-table__action"
+                type="button"
+                title="查看歌曲评论"
+                @click.stop="openSongComments(song)"
+              >
+                <MessageSquareMore :size="14" :stroke-width="1.95" />
+              </button>
+            </div>
           </article>
         </div>
       </section>
     </template>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -606,7 +635,7 @@ onBeforeUnmount(() => {
 
 .album-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px 78px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -680,6 +709,11 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
+.album-table__cell--actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .album-table__main {
   display: flex;
   align-items: center;
@@ -724,6 +758,28 @@ onBeforeUnmount(() => {
 
 .album-table__sub--mobile {
   display: none;
+}
+
+.album-table__action {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(241, 245, 255, 0.8);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.album-table__action:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .album-table__equalizer {
@@ -793,7 +849,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px 72px;
   }
 }
 
@@ -807,7 +863,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 34px minmax(0, 1fr) 64px;
+    grid-template-columns: 34px minmax(0, 1fr) 64px 68px;
   }
 
   .album-table__cell--artist {
@@ -838,7 +894,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 60px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -859,7 +915,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr) 48px;
   }
 }
 </style>

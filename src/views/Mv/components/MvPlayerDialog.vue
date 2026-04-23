@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { MessageSquareMore, Pause, Play, Share2, X } from 'lucide-vue-next'
+import { getMvComments, type CommentItem } from '@/api/comment'
+import CommentsPanel from '@/components/comments/CommentsPanel.vue'
 import {
   getMvDetail,
   getMvPlaybackSource,
@@ -35,6 +37,15 @@ const videoCurrentTimeSeconds = ref(0)
 const videoDurationSeconds = ref(0)
 const videoSeekableEndSeconds = ref(0)
 const isVideoPlaying = ref(false)
+const commentsVisible = ref(false)
+const comments = ref<CommentItem[]>([])
+const hotComments = ref<CommentItem[]>([])
+const commentsTotal = ref(0)
+const commentsLoading = ref(false)
+const commentsLoadingMore = ref(false)
+const commentsError = ref('')
+const commentsHasMore = ref(false)
+const commentsNextOffset = ref(0)
 
 // requestToken 用于丢弃过期异步请求。
 // 例如：连续点开两支不同 MV 时，第一支详情慢回来，不能覆盖第二支当前弹层状态。
@@ -43,12 +54,14 @@ let requestToken = 0
 // 弹层打开时会锁定 body 滚动；关闭时必须恢复之前的 overflow。
 // previousBodyOverflow 用来记住用户在打开前 body 的样式。
 let previousBodyOverflow = ''
+const COMMENT_PAGE_SIZE = 12
 
 // 这三个 computed 让弹层能做到“边加载边有内容”：
 // 即使 detail 还没回来，也能先用父层传入的 seed 数据把标题、歌手、封面先渲染出来。
 const displayTitle = computed(() => detail.value?.title || props.mv?.title || '')
 const displayArtist = computed(() => detail.value?.artistName || props.mv?.artistNames.join(' / ') || '未知歌手')
 const displayCover = computed(() => detail.value?.coverUrl || props.mv?.coverUrl || '')
+const displayCommentTotal = computed(() => Math.max(commentsTotal.value, detail.value?.commentCount ?? 0))
 const resolvedDurationMs = computed(() => actualDurationMs.value ?? detail.value?.duration)
 const resolvedVideoDurationSeconds = computed(() => {
   const detailDurationSeconds = detail.value?.duration ? detail.value.duration / 1000 : 0
@@ -130,6 +143,38 @@ function pauseVideoPlayback() {
   isVideoPlaying.value = false
 }
 
+function resetCommentsState() {
+  comments.value = []
+  hotComments.value = []
+  commentsTotal.value = 0
+  commentsLoading.value = false
+  commentsLoadingMore.value = false
+  commentsError.value = ''
+  commentsHasMore.value = false
+  commentsNextOffset.value = 0
+}
+
+async function toggleCommentsPanel() {
+  const mvId = props.mv?.id
+
+  if (!mvId) {
+    return
+  }
+
+  if (commentsVisible.value) {
+    commentsVisible.value = false
+    return
+  }
+
+  commentsVisible.value = true
+
+  if (comments.value.length > 0 || hotComments.value.length > 0 || commentsLoading.value || commentsLoadingMore.value) {
+    return
+  }
+
+  await loadComments(mvId, 0, false, requestToken)
+}
+
 function syncVideoTiming() {
   const video = videoElement.value
   const durationSeconds = video?.duration
@@ -198,6 +243,67 @@ async function toggleVideoPlay() {
   videoElement.value.pause()
 }
 
+async function loadComments(mvId: string, offset: number, append: boolean, token = requestToken) {
+  const targetLoading = append ? commentsLoadingMore : commentsLoading
+
+  targetLoading.value = true
+
+  try {
+    const payload = await getMvComments(mvId, {
+      limit: COMMENT_PAGE_SIZE,
+      offset,
+    })
+
+    if (token !== requestToken) {
+      return
+    }
+
+    commentsTotal.value = payload.total
+    commentsHasMore.value = payload.hasMore
+    commentsNextOffset.value = payload.nextOffset
+    commentsError.value = ''
+
+    if (append) {
+      comments.value = [...comments.value, ...payload.comments]
+      return
+    }
+
+    hotComments.value = payload.hotComments
+    comments.value = payload.comments
+  } catch (err) {
+    if (token !== requestToken) {
+      return
+    }
+
+    commentsError.value = err instanceof Error ? err.message : 'MV 评论加载失败'
+  } finally {
+    if (token === requestToken) {
+      targetLoading.value = false
+    }
+  }
+}
+
+async function retryLoadComments() {
+  const mvId = props.mv?.id
+
+  if (!mvId || commentsLoading.value || commentsLoadingMore.value) {
+    return
+  }
+
+  resetCommentsState()
+  await loadComments(mvId, 0, false, requestToken)
+}
+
+async function loadMoreComments() {
+  const mvId = props.mv?.id
+
+  if (!mvId || commentsLoading.value || commentsLoadingMore.value || !commentsHasMore.value) {
+    return
+  }
+
+  await loadComments(mvId, commentsNextOffset.value, true, requestToken)
+}
+
 // loadSource 只负责“当前 MV 在某个清晰度下的视频地址”。
 // 详情和播放地址拆开请求，是因为切换清晰度时不需要重新拉一遍详情。
 async function loadSource(mvId: string, resolution?: number, token = requestToken) {
@@ -241,6 +347,8 @@ async function loadDialogData(mvId: string) {
   detail.value = null
   source.value = null
   selectedResolution.value = null
+  commentsVisible.value = false
+  resetCommentsState()
 
   try {
     const nextDetail = await getMvDetail(mvId)
@@ -307,6 +415,8 @@ watch(
       requestToken += 1
       pauseVideoPlayback()
       resetVideoTiming()
+      commentsVisible.value = false
+      resetCommentsState()
     }
   },
 )
@@ -434,10 +544,15 @@ onBeforeUnmount(() => {
               <Share2 class="mv-dialog__action-icon" :stroke-width="1.9" />
               <span>{{ formatCount(detail?.shareCount) }}</span>
             </span>
-            <span class="mv-dialog__action-pill">
+            <button
+              class="mv-dialog__action-pill mv-dialog__action-pill--button"
+              :class="{ 'mv-dialog__action-pill--active': commentsVisible }"
+              type="button"
+              @click="toggleCommentsPanel"
+            >
               <MessageSquareMore class="mv-dialog__action-icon" :stroke-width="1.9" />
-              <span>{{ formatCount(detail?.commentCount) }}</span>
-            </span>
+              <span>{{ commentsVisible ? '收起评论' : formatCount(detail?.commentCount) }}</span>
+            </button>
           </div>
 
           <div v-if="detail?.availableResolutions.length" class="mv-dialog__section">
@@ -472,6 +587,24 @@ onBeforeUnmount(() => {
             <p class="mv-dialog__desc">{{ detail.description }}</p>
           </div>
         </aside>
+
+        <section v-if="commentsVisible" class="mv-dialog__comments">
+          <div class="mv-dialog__comments-head">
+            <div class="mv-dialog__section-title">评论区</div>
+            <div class="mv-dialog__comments-total">{{ formatCount(displayCommentTotal) }} 条评论</div>
+          </div>
+          <CommentsPanel
+            :comments="comments"
+            :error="commentsError"
+            :has-more="commentsHasMore"
+            :hot-comments="hotComments"
+            :loading="commentsLoading"
+            :loading-more="commentsLoadingMore"
+            empty-text="这支 MV 暂时还没有评论。"
+            @load-more="loadMoreComments"
+            @retry="retryLoadComments"
+          />
+        </section>
       </section>
     </div>
   </Teleport>
@@ -539,6 +672,30 @@ onBeforeUnmount(() => {
 .mv-dialog__close-icon {
   width: 16px;
   height: 16px;
+}
+
+.mv-dialog__comments {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+  border-radius: 24px;
+  background: rgba(7, 10, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mv-dialog__comments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mv-dialog__comments-total {
+  color: rgba(223, 229, 255, 0.6);
+  font-size: 12px;
 }
 
 .mv-dialog__media-shell,
@@ -754,6 +911,24 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(247, 247, 255, 0.88);
   font-size: 12px;
+}
+
+.mv-dialog__action-pill--button {
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.mv-dialog__action-pill--button:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mv-dialog__action-pill--active {
+  background: linear-gradient(90deg, rgba(255, 74, 184, 0.92), rgba(175, 84, 255, 0.9));
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
 }
 
 .mv-dialog__action-icon {

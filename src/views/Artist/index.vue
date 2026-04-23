@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Heart, Play, Share2, Shuffle } from 'lucide-vue-next'
+import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArtistDetail, type ArtistDetail, type ArtistMv, type ArtistSong } from '@/api/artist'
 import type { MvPlaybackSeed } from '@/api/mv'
@@ -24,8 +26,10 @@ const artist = ref<ArtistDetail | null>(null)
 const actionHint = ref('')
 const isFollowed = ref(false)
 const activePanel = ref<'songs' | 'albums' | 'mvs'>('songs')
+const activeSong = ref<SongCommentSeed | null>(null)
 const activeMv = ref<MvPlaybackSeed | null>(null)
 const playerVisible = ref(false)
+const songCommentsVisible = ref(false)
 
 let requestToken = 0
 const clearActionHint = debounce(() => {
@@ -157,6 +161,18 @@ function playRandom() {
 function toggleFollowed() {
   isFollowed.value = !isFollowed.value
   showActionHint(isFollowed.value ? '已关注歌手' : '已取消关注')
+}
+
+function openSongComments(song: ArtistSong) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl || artist.value?.coverUrl || FALLBACK_COVER_URL,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 
 function openMv(mv: ArtistMv) {
@@ -359,6 +375,7 @@ onBeforeUnmount(() => {
           <div class="artist-table__cell artist-table__cell--artist">歌手</div>
           <div class="artist-table__cell artist-table__cell--album">专辑</div>
           <div class="artist-table__cell artist-table__cell--numeric">时长</div>
+          <div class="artist-table__cell artist-table__cell--actions">操作</div>
         </div>
 
         <div v-if="artist.songs.length === 0" class="artist-table__empty">
@@ -414,6 +431,16 @@ onBeforeUnmount(() => {
             <div class="artist-table__cell artist-table__cell--album">{{ song.albumName }}</div>
             <div class="artist-table__cell artist-table__cell--numeric">
               {{ formatDurationMs(song.duration) }}
+            </div>
+            <div class="artist-table__cell artist-table__cell--actions">
+              <button
+                class="artist-table__action"
+                type="button"
+                title="查看歌曲评论"
+                @click.stop="openSongComments(song)"
+              >
+                <MessageSquareMore :size="14" :stroke-width="1.95" />
+              </button>
             </div>
           </article>
         </div>
@@ -490,6 +517,7 @@ onBeforeUnmount(() => {
     </template>
 
     <MvPlayerDialog v-model="playerVisible" :mv="activeMv" />
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -769,7 +797,7 @@ onBeforeUnmount(() => {
 
 .artist-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 78px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -843,6 +871,11 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
+.artist-table__cell--actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .artist-table__main {
   display: flex;
   align-items: center;
@@ -888,6 +921,28 @@ onBeforeUnmount(() => {
 
 .artist-table__sub--mobile {
   display: none;
+}
+
+.artist-table__action {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(241, 245, 255, 0.8);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.artist-table__action:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .artist-table__equalizer {
@@ -1083,7 +1138,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 72px;
   }
 }
 
@@ -1102,7 +1157,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px;
+    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 68px;
   }
 
   .artist-table__cell--album {
@@ -1134,7 +1189,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 60px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -1167,7 +1222,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 26px minmax(0, 1fr) 48px;
   }
 
   .artist-mv-grid,

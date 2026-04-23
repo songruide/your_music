@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Download, Info } from 'lucide-vue-next'
+import { Download, MessageSquareMore } from 'lucide-vue-next'
 import type { SearchSong } from '@/api/search'
 import { formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, handleSearchCoverError } from '../utils'
@@ -15,6 +15,7 @@ defineProps<{
 
 const emit = defineEmits<{
   (event: 'select-track', song: SearchSong): void
+  (event: 'show-comments', song: SearchSong): void
 }>()
 </script>
 
@@ -83,8 +84,13 @@ const emit = defineEmits<{
           {{ formatDurationMs(song.duration) }}
         </div>
         <div class="search-table__cell search-table__cell--actions">
-          <button class="search-table__action" type="button" title="歌曲详情稍后支持" @click.stop>
-            <Info :stroke-width="1.9" />
+          <button
+            class="search-table__action"
+            type="button"
+            title="查看歌曲评论"
+            @click.stop="emit('show-comments', song)"
+          >
+            <MessageSquareMore :stroke-width="1.9" />
           </button>
           <button class="search-table__action" type="button" title="下载稍后支持" @click.stop>
             <Download :stroke-width="1.9" />
