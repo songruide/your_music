@@ -13,11 +13,27 @@ export interface SongPlaybackSource {
   type?: string
 }
 
+export interface SongLyricPayload {
+  id: string
+  lyric?: string
+  translatedLyric?: string
+  noLyric?: boolean
+  uncollected?: boolean
+}
+
 export function getSongPlaybackSource(id: string, level = 'standard') {
   return request<SongPlaybackSource>('/api/player/song-url', {
     params: {
       id,
       level,
+    },
+  })
+}
+
+export function getSongLyrics(id: string) {
+  return request<SongLyricPayload>('/api/player/lyrics', {
+    params: {
+      id,
     },
   })
 }

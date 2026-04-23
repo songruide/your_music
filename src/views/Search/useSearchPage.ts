@@ -159,6 +159,7 @@ export function useSearchPage() {
       id: song.id,
       title: song.name,
       artistNames: song.artistNames,
+      albumName: song.albumName,
       coverUrl: song.coverUrl,
       durationMs: song.duration,
     })

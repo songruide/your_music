@@ -97,7 +97,13 @@ function handleCoverError(event: Event) {
 <template>
   <footer class="player" aria-label="Playback controls">
     <div class="player__shell">
-      <div class="player__meta">
+      <button
+        class="player__meta"
+        type="button"
+        :disabled="!currentTrack"
+        aria-label="打开播放详情"
+        @click="playerStore.openDetail()"
+      >
         <div class="player__cover-box">
           <img
             v-if="currentTrack?.coverUrl"
@@ -114,7 +120,7 @@ function handleCoverError(event: Event) {
           <div class="player__artist">{{ currentTrack?.artist ?? '首页热门单曲已接入播放器' }}</div>
           <div v-if="queueText" class="player__queue">{{ queueText }}</div>
         </div>
-      </div>
+      </button>
 
       <div class="player__center">
         <div class="player__transport">
@@ -200,7 +206,12 @@ function handleCoverError(event: Event) {
         >
           DBG
         </button>
-        <button class="player__icon-button" aria-label="Fullscreen">
+        <button
+          class="player__icon-button"
+          aria-label="打开播放详情"
+          :disabled="!currentTrack"
+          @click="playerStore.openDetail()"
+        >
           <FullScreen class="player__svg-icon" />
         </button>
       </div>
@@ -271,6 +282,30 @@ function handleCoverError(event: Event) {
   border-radius: 16px;
   background: rgba(20, 10, 46, 0.46);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.player__meta:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.player__meta:not(:disabled):hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(30, 13, 62, 0.6);
+}
+
+.player__meta:focus-visible {
+  outline: 2px solid rgba(255, 151, 224, 0.92);
+  outline-offset: 2px;
 }
 
 .player__cover-box {

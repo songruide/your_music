@@ -8,6 +8,7 @@ export interface PlayableSongSeed {
   id: string
   title: string
   artistNames: string[]
+  albumName?: string
   coverUrl: string
   durationMs?: number
 }
@@ -48,6 +49,10 @@ export function buildPlayerTrack(song: PlayableSongSeed): PlayerTrack {
     // 页面层常常给的是歌手数组，这里统一拼成播放器展示用的字符串。
     // 如果数组为空，就给一个兜底文案，避免出现空字符串。
     artist: song.artistNames.join(' / ') || '未知歌手',
+
+    // 播放详情页会展示专辑名，因此在统一适配层里一并收敛，
+    // 这样首页、搜索、歌单、专辑等所有入口都能共用。
+    album: song.albumName?.trim() || '单曲收藏',
 
     // 封面图直接透传给播放器，用于底部播放条和后续可能的播放详情页。
     coverUrl: song.coverUrl,

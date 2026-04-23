@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
+import PlayerDetailDialog from '@/components/PlayerDetailDialog.vue'
 import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 import AuthDialog from '@/components/AuthDialog.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -38,6 +39,7 @@ void authStore.initialize()
     </div>
 
     <AuthDialog />
+    <PlayerDetailDialog />
   </div>
 </template>
 

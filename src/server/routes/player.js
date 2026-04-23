@@ -1,6 +1,7 @@
 import express from 'express'
 import { AUDIO_RESPONSE_HEADERS, DEFAULT_SONG_LEVEL } from '../config.js'
 import { pipeUpstreamStream } from '../services/media.js'
+import { fetchNcm } from '../services/ncm.js'
 import { buildSongStreamUrl, resolveSongSource } from '../services/player.js'
 import { fetchRecentSongTracks } from '../services/recent.js'
 import {
@@ -63,6 +64,19 @@ router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
     streamUrl: buildSongStreamUrl(id, level),
     type: song.type,
     url: song.url,
+  })
+}))
+
+router.get('/api/player/lyrics', createRouteHandler(async (req, res) => {
+  const id = getRequiredQueryString(req, 'id', 'song id is required')
+  const payload = await fetchNcm('/lyric', { id })
+
+  sendOk(res, {
+    id,
+    lyric: payload?.lrc?.lyric ?? '',
+    translatedLyric: payload?.tlyric?.lyric ?? '',
+    noLyric: Boolean(payload?.nolyric),
+    uncollected: Boolean(payload?.uncollected),
   })
 }))
 

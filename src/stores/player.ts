@@ -33,6 +33,7 @@ export const usePlayerStore = defineStore('player', () => {
   const currentTimeSeconds = ref(0)
   const durationSeconds = ref(0)
   const debugEnabled = ref(false)
+  const isDetailVisible = ref(false)
   const isPlaying = ref(false)
   const isLoading = ref(false)
   const isMuted = ref(false)
@@ -190,6 +191,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentIndex.value = -1
     syncTrackPlaybackState(null)
     error.value = ''
+    isDetailVisible.value = false
     isLoading.value = false
     isPlaying.value = false
   }
@@ -551,6 +553,37 @@ export const usePlayerStore = defineStore('player', () => {
     debugEnabled.value = !debugEnabled.value
   }
 
+  function openDetail() {
+    if (!currentTrack.value) {
+      return
+    }
+
+    isDetailVisible.value = true
+  }
+
+  function closeDetail() {
+    isDetailVisible.value = false
+  }
+
+  function toggleDetail(nextValue?: boolean) {
+    if (typeof nextValue === 'boolean') {
+      if (nextValue) {
+        openDetail()
+        return
+      }
+
+      closeDetail()
+      return
+    }
+
+    if (isDetailVisible.value) {
+      closeDetail()
+      return
+    }
+
+    openDetail()
+  }
+
   function restoreState() {
     const persistedState = readPersistedPlayerState()
 
@@ -592,11 +625,14 @@ export const usePlayerStore = defineStore('player', () => {
     debugSnapshot,
     durationLabel,
     error,
+    closeDetail,
     hasNext,
     hasPrevious,
+    isDetailVisible,
     isLoading,
     isMuted,
     isPlaying,
+    openDetail,
     playNextTrack,
     playPreviousTrack,
     playQueue,
@@ -604,9 +640,11 @@ export const usePlayerStore = defineStore('player', () => {
     progressPercent,
     queue,
     seekToPercent,
+    seekToSeconds,
     setQueue,
     setVolume,
     toggleDebug,
+    toggleDetail,
     toggleMute,
     togglePlay,
     volume,

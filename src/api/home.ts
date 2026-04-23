@@ -30,6 +30,7 @@ export interface HomeSong {
   name: string
   coverUrl: string
   artistNames: string[]
+  albumName?: string
   duration?: number
   playable?: boolean
 }
