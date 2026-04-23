@@ -409,11 +409,15 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
-  async function playTrack(track: PlayerTrack) {
-    await playQueue([track], 0)
+  async function playTrack(track: PlayerTrack, options: { startTimeSeconds?: number } = {}) {
+    await playQueue([track], 0, options)
   }
 
-  async function playQueue(tracks: PlayerTrack[], startIndex = 0) {
+  async function playQueue(
+    tracks: PlayerTrack[],
+    startIndex = 0,
+    options: { startTimeSeconds?: number } = {},
+  ) {
     setQueue(tracks, startIndex)
 
     const nextTrack = getTrackAtIndex(currentIndex.value)
@@ -422,7 +426,7 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
-    await startPlayback(nextTrack)
+    await startPlayback(nextTrack, options)
   }
 
   async function playTrackAtIndex(index: number) {

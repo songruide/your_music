@@ -147,26 +147,26 @@ function handleCoverError(event: Event) {
 
 .mv-card__metrics {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  top: 10px;
+  left: 10px;
+  right: 10px;
   z-index: 2;
   display: flex;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mv-card__metric {
-  height: 24px;
-  padding: 0 9px;
+  height: 20px;
+  padding: 0 7px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   border-radius: 999px;
   background: rgba(10, 12, 24, 0.58);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(248, 250, 255, 0.92);
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   backdrop-filter: blur(12px);
 }
@@ -176,8 +176,8 @@ function handleCoverError(event: Event) {
 }
 
 .mv-card__metric-icon {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   flex: none;
 }
 
@@ -202,11 +202,11 @@ function handleCoverError(event: Event) {
 }
 
 .mv-card__body {
-  min-height: 142px;
-  padding: 16px 16px 15px;
+  min-height: 136px;
+  padding: 14px 14px 13px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background:
     radial-gradient(circle at 20% 0%, rgba(198, 82, 255, 0.12), transparent 32%),
     radial-gradient(circle at 82% 10%, rgba(48, 146, 255, 0.12), transparent 28%),
@@ -218,17 +218,17 @@ function handleCoverError(event: Event) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mv-card__badge,
 .mv-card__hint {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
+  min-height: 18px;
+  padding: 0 6px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .mv-card__badge {
@@ -246,7 +246,7 @@ function handleCoverError(event: Event) {
   overflow: hidden;
   margin: 0;
   color: rgba(252, 251, 255, 0.98);
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.2;
   letter-spacing: -0.03em;
   -webkit-box-orient: vertical;
@@ -263,17 +263,17 @@ function handleCoverError(event: Event) {
 .mv-card__artist {
   margin: 0;
   color: rgba(230, 236, 255, 0.68);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .mv-card__subline {
   color: rgba(216, 224, 255, 0.42);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .mv-card__action {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -284,8 +284,8 @@ function handleCoverError(event: Event) {
 }
 
 .mv-card__action-icon {
-  width: 13px;
-  height: 13px;
+  width: 11px;
+  height: 11px;
   margin-left: 1px;
 }
 
@@ -295,12 +295,12 @@ function handleCoverError(event: Event) {
   }
 
   .mv-card__body {
-    min-height: 132px;
-    padding: 14px;
+    min-height: 128px;
+    padding: 13px;
   }
 
   .mv-card__title {
-    font-size: 18px;
+    font-size: 17px;
   }
 }
 </style>

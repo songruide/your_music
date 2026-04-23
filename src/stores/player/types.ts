@@ -12,6 +12,7 @@ export interface PlayerTrack {
   id: string
   title: string
   artist: string
+  album?: string
   coverUrl: string
   duration: string
   durationMs?: number

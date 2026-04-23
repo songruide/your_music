@@ -3,12 +3,10 @@ import {
   BellFilled,
   Clock,
   FolderOpened,
-  Headset,
   HomeFilled,
   Search,
   Setting,
   TrendCharts,
-  UserFilled,
   VideoPlay,
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
@@ -35,10 +33,8 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
     items: [
       { label: '首页', icon: HomeFilled, to: '/' },
       { label: 'MV', icon: VideoPlay, to: '/mv' },
-      { label: '音乐馆', icon: Headset, to: '/music' },
       { label: '搜索', icon: Search, to: '/search' },
       { label: '排行榜', icon: TrendCharts, muted: true },
-      { label: '歌手', icon: UserFilled, muted: true },
     ],
   },
   {

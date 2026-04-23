@@ -1,18 +1,17 @@
 <template>
-       <section v-if="!props.hotArtists.length && !props.hotSongs.length" class="block block--empty">
+       <section v-if="!props.hotSongs.length" class="block block--empty">
         <div class="home__empty">
           <span class="home__empty-tag">Next</span>
           <p class="home__empty-text">
-            歌手和单曲区还没接好时，可以先把 banner 和歌单区做顺，整体视觉已经会很像首页了。
+            单曲区还没接好时，可以先把 banner 和歌单区做顺，整体视觉已经会很像首页了。
           </p>
         </div>
       </section>
 </template>
 
 <script setup lang="ts" scoped>
-import { type HomeArtist, type HomeSong } from '@/api/home'
+import { type HomeSong } from '@/api/home'
 const props = defineProps<{
-  hotArtists: HomeArtist[]
   hotSongs: HomeSong[]
 }>()
 </script>

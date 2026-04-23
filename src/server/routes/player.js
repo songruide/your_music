@@ -2,6 +2,7 @@ import express from 'express'
 import { AUDIO_RESPONSE_HEADERS, DEFAULT_SONG_LEVEL } from '../config.js'
 import { pipeUpstreamStream } from '../services/media.js'
 import { buildSongStreamUrl, resolveSongSource } from '../services/player.js'
+import { fetchRecentSongTracks } from '../services/recent.js'
 import {
   createRouteHandler,
   getRequiredQueryString,
@@ -10,6 +11,38 @@ import {
 } from '../utils/http.js'
 
 const router = express.Router()
+
+const AUTH_COOKIE_NAME = 'your_music_ncm_session'
+
+function readAuthCookie(req) {
+  const rawCookieHeader = req.headers.cookie ?? ''
+
+  if (!rawCookieHeader) {
+    return ''
+  }
+
+  for (const chunk of rawCookieHeader.split(';')) {
+    const [rawName, ...rawValueParts] = chunk.trim().split('=')
+
+    if (rawName !== AUTH_COOKIE_NAME) {
+      continue
+    }
+
+    const rawValue = rawValueParts.join('=')
+
+    if (!rawValue) {
+      return ''
+    }
+
+    try {
+      return decodeURIComponent(rawValue)
+    } catch {
+      return rawValue
+    }
+  }
+
+  return ''
+}
 
 router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
   const id = getRequiredQueryString(req, 'id', 'song id is required')
@@ -31,6 +64,22 @@ router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
     type: song.type,
     url: song.url,
   })
+}))
+
+router.get('/api/player/recent-songs', createRouteHandler(async (req, res) => {
+  const cookie = readAuthCookie(req)
+
+  if (!cookie) {
+    throw new HttpError(401, '请先登录后再同步最近播放')
+  }
+
+  const tracks = await fetchRecentSongTracks({
+    cookie,
+    limit: req.query.limit,
+    ua: 'pc',
+  })
+
+  sendOk(res, tracks)
 }))
 
 router.get('/api/player/stream', createRouteHandler(async (req, res) => {

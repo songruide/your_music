@@ -5,9 +5,8 @@
     <template v-else>
         <BannerList :banners="homeData.banners" />
         <RecomendSongs :recommendedPlaylists="homeData.recommendedPlaylists" />
-        <Hotsinger :hotArtists="homeData.hotArtists" />
         <HotSongs :hotSongs="homeData.hotSongs" />
-        <EmptyState :hotArtists="homeData.hotArtists" :hotSongs="homeData.hotSongs" />
+        <EmptyState :hotSongs="homeData.hotSongs" />
     </template>
   </section>
 </template>
@@ -17,7 +16,6 @@ import { onMounted, ref } from 'vue'
 import { getHomePage, type HomePageData,} from '@/api/home'
 import BannerList from './components/BannerList.vue'
 import RecomendSongs from './components/RecomendSongs.vue'
-import Hotsinger from './components/Hotsinger.vue'
 import HotSongs from './components/HotSongs.vue'
 import EmptyState from './components/EmptyState.vue'
 const loading = ref(true)
@@ -25,7 +23,6 @@ const error = ref('')
 const homeData = ref<HomePageData>({
   banners: [],
   recommendedPlaylists: [],
-  hotArtists: [],
   hotSongs: [],
 })
 async function loadHomePage() {

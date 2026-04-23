@@ -18,13 +18,6 @@ export interface HomePlaylist {
   description?: string
 }
 
-export interface HomeArtist {
-  id: string
-  name: string
-  avatarUrl: string
-  musicCount?: number
-}
-
 export interface HomeSong {
   id: string
   name: string
@@ -37,14 +30,12 @@ export interface HomeSong {
 export interface HomePageData {
   banners: HomeBanner[]
   recommendedPlaylists: HomePlaylist[]
-  hotArtists: HomeArtist[]
   hotSongs: HomeSong[]
 }
 
 export interface HomePageOptions {
   bannerLimit?: number
   playlistLimit?: number
-  artistLimit?: number
   songLimit?: number
 }
 
@@ -56,12 +47,6 @@ function getHomeBanners(limit = 5) {
 
 function getRecommendedPlaylists(limit = 12) {
   return request<HomePlaylist[]>('/api/home/recommended-playlists', {
-    params: { limit },
-  })
-}
-
-function getHotArtists(limit = 10) {
-  return request<HomeArtist[]>('/api/home/hot-artists', {
     params: { limit },
   })
 }
@@ -78,21 +63,18 @@ export async function getHomePage(options: HomePageOptions = {}): Promise<HomePa
   const {
     bannerLimit = 5,
     playlistLimit = 12,
-    artistLimit = 10,
     songLimit = 10,
   } = options
 
-  const [banners, recommendedPlaylists, hotArtists, hotSongs] = await Promise.all([
+  const [banners, recommendedPlaylists, hotSongs] = await Promise.all([
     getHomeBanners(bannerLimit),
     getRecommendedPlaylists(playlistLimit),
-    getHotArtists(artistLimit),
     getHotSongs(songLimit),
   ])
 
   return {
     banners,
     recommendedPlaylists,
-    hotArtists,
     hotSongs,
   }
 }

@@ -287,12 +287,12 @@ onMounted(() => {
 .mv-stage__eyebrow {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 20px;
+  padding: 0 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   color: rgba(249, 247, 255, 0.86);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -308,51 +308,52 @@ onMounted(() => {
 .mv-stage__desc {
   margin: 0;
   color: rgba(232, 238, 255, 0.76);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .mv-stage__summary {
-  margin-top: 14px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mv-stage__summary-pill {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 10px;
+  min-height: 22px;
+  padding: 0 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(250, 248, 255, 0.92);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .mv-stage__summary-text {
   color: rgba(221, 228, 255, 0.66);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .mv-stage__filters {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mv-stage__filter {
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: 30px;
+  padding: 0 12px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(21, 18, 58, 0.36);
   color: rgba(229, 235, 255, 0.78);
+  font-size: 11px;
   cursor: pointer;
   transition:
     transform 180ms ease,
@@ -378,8 +379,8 @@ onMounted(() => {
 }
 
 .mv-stage__filter-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: currentColor;
   opacity: 0.8;
@@ -468,7 +469,7 @@ onMounted(() => {
 .mv-stage__loading-note {
   margin-top: 14px;
   color: rgba(232, 237, 255, 0.58);
-  font-size: 12px;
+  font-size: 11px;
   text-align: right;
 }
 
@@ -514,8 +515,8 @@ onMounted(() => {
   }
 
   .mv-stage__filter {
-    min-height: 34px;
-    padding: 0 14px;
+    min-height: 28px;
+    padding: 0 10px;
   }
 
   .mv-grid {
