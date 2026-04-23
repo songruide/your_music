@@ -246,7 +246,6 @@ onBeforeUnmount(() => {
 
         <section class="player-detail__panel" role="dialog" aria-modal="true" :aria-label="panelLabel">
           <button class="player-detail__collapse" type="button" aria-label="收起播放详情" @click="closeDialog">
-            <span class="player-detail__pull-line" aria-hidden="true"></span>
             <ChevronDown class="player-detail__collapse-icon" :stroke-width="2.2" />
           </button>
 
@@ -476,41 +475,34 @@ onBeforeUnmount(() => {
 .player-detail__collapse {
   position: absolute;
   z-index: 3;
-  width: 30px;
-  height: 30px;
+  top: 14px;
+  right: 14px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: transparent;
   color: rgba(21, 23, 32, 0.74);
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 10px 24px rgba(61, 53, 86, 0.12);
-}
-
-.player-detail__collapse {
-  top: 10px;
-  left: 50%;
-  gap: 2px;
-  width: auto;
-  min-width: 42px;
-  padding: 0 8px;
-  transform: translateX(-50%);
+  opacity: 0.82;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .player-detail__collapse-icon {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
 }
 
-.player-detail__pull-line {
-  width: 14px;
-  height: 3px;
-  border-radius: 999px;
-  background: rgba(21, 23, 32, 0.18);
+.player-detail__collapse:hover,
+.player-detail__collapse:focus-visible {
+  outline: none;
+  opacity: 1;
+  transform: translateY(1px);
 }
 
 .player-detail__ambient {
@@ -935,10 +927,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   padding: 18px clamp(4px, 1vw, 12px) 8px 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  backdrop-filter: blur(10px);
 }
 
 .player-detail__lyrics-head {
@@ -946,7 +934,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 14px 10px;
+  padding: 4px 10px 10px;
   color: rgba(28, 31, 42, 0.48);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -959,7 +947,7 @@ onBeforeUnmount(() => {
   height: calc(100vh - 96px);
   min-height: calc(100dvh - 96px);
   overflow-y: auto;
-  padding: 31vh 12px;
+  padding: 31vh 18px;
   scroll-behavior: auto;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
@@ -1005,7 +993,7 @@ onBeforeUnmount(() => {
 .player-detail__lyric-line:focus-visible {
   outline: none;
   color: rgba(24, 28, 40, 0.72);
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .player-detail__lyric-line--past {
@@ -1014,9 +1002,9 @@ onBeforeUnmount(() => {
 
 .player-detail__lyric-line--active {
   color: rgba(19, 20, 30, 0.96);
-  background: rgba(215, 150, 220, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   transform: scale(1);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .player-detail__lyric-text {
@@ -1123,13 +1111,18 @@ onBeforeUnmount(() => {
     height: min(460px, calc(100vh - 430px));
     min-height: min(460px, calc(100dvh - 430px));
     max-height: none;
-    padding: 148px 4px;
+    padding: 148px 10px;
   }
 }
 
 @media (max-width: 560px) {
   .player-detail__panel {
     padding: 52px 12px 12px;
+  }
+
+  .player-detail__collapse {
+    top: 12px;
+    right: 12px;
   }
 
   .player-detail__record-shell {
@@ -1161,7 +1154,7 @@ onBeforeUnmount(() => {
   .player-detail__lyrics-scroll {
     height: min(360px, calc(100vh - 364px));
     min-height: min(360px, calc(100dvh - 364px));
-    padding: 128px 0;
+    padding: 128px 6px;
   }
 }
 </style>

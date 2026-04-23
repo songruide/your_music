@@ -41,7 +41,7 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
     title: '我的音乐',
     items: [
       { label: '最近播放', icon: Clock, to: '/mini-player' },
-      { label: '本地音乐', icon: FolderOpened, muted: true },
+      { label: '本地音乐', icon: FolderOpened, to: '/local-music' },
       { label: '新歌上架', icon: BellFilled, muted: true },
     ],
   },

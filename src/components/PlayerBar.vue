@@ -1,21 +1,24 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { FullScreen } from '@element-plus/icons-vue'
-import { ListMusic, Volume2, VolumeX } from 'lucide-vue-next'
+import { Download, Heart, ListMusic, MessageSquareText, Volume2, VolumeX } from 'lucide-vue-next'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
 
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f35bb4'/%3E%3Cstop offset='1' stop-color='%23508dff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='120' rx='24' fill='url(%23g)'/%3E%3Ccircle cx='60' cy='44' r='16' fill='rgba(255,255,255,.7)'/%3E%3Crect x='30' y='68' width='60' height='22' rx='11' fill='rgba(255,255,255,.46)'/%3E%3C/svg%3E"
+const playerShellRef = ref<HTMLElement | null>(null)
+const commentsVisible = ref(false)
+const queuePanelVisible = ref(false)
 const {
   currentIndex,
   currentTime,
   currentTrack,
-  debugEnabled,
-  debugSnapshot,
   durationLabel,
-  error,
   hasNext,
   hasPrevious,
   isLoading,
@@ -26,51 +29,41 @@ const {
   volumePercent,
 } = storeToRefs(playerStore)
 
-const queueText = computed(() => {
-  if (queue.value.length <= 1 || currentIndex.value < 0) {
-    return ''
-  }
-
-  return `队列 ${currentIndex.value + 1}/${queue.value.length}`
-})
-
-const statusText = computed(() => {
-  if (error.value) {
-    return error.value
-  }
-
-  if (isLoading.value) {
-    return '正在加载音源...'
-  }
-
-  if (currentTrack.value) {
-    return queueText.value ? `${queueText.value}，刷新后会记住播放位置` : '刷新后会记住播放位置'
-  }
-
-  return '点击首页热门单曲开始播放'
-})
-
 const volumeButtonLabel = computed(() => (isMuted.value || volumePercent.value === 0 ? '取消静音' : '静音'))
-const debugRows = computed(() => [
-  ['trackId', debugSnapshot.value.currentTrackId || '-'],
-  ['sourceMode', debugSnapshot.value.sourceMode || '-'],
-  ['type', debugSnapshot.value.type || '-'],
-  ['level', debugSnapshot.value.level || '-'],
-  ['bitrate', debugSnapshot.value.bitrate ? `${debugSnapshot.value.bitrate} bps` : '-'],
-  ['sampleRate', debugSnapshot.value.sampleRate ? `${debugSnapshot.value.sampleRate} Hz` : '-'],
-  ['playbackRate', String(debugSnapshot.value.playbackRate)],
-  ['readyState', String(debugSnapshot.value.readyState)],
-  ['networkState', String(debugSnapshot.value.networkState)],
-  ['currentTime', `${debugSnapshot.value.currentTimeSeconds}s / ${debugSnapshot.value.durationSeconds}s`],
-  ['streamUrl', debugSnapshot.value.streamUrl || '-'],
-  ['resolvedAudioUrl', debugSnapshot.value.resolvedAudioUrl || '-'],
-  ['audioCurrentSrc', debugSnapshot.value.audioCurrentSrc || '-'],
-  ['directUrl', debugSnapshot.value.directUrl || '-'],
-  [
-    'expiresAt',
-    debugSnapshot.value.expiresAt ? new Date(debugSnapshot.value.expiresAt).toLocaleString() : '-',
-  ],
-])
+const queueButtonLabel = computed(() => (queue.value.length > 0 ? `播放队列，共 ${queue.value.length} 首` : '播放队列'))
+const queueSourceText = computed(() =>
+  currentTrack.value ? '来源：当前播放器队列' : '点击一首歌后这里会显示待播歌曲',
+)
+const hasCurrentTrack = computed(() => Boolean(currentTrack.value))
+const currentTitle = computed(() => currentTrack.value?.title || '点击一首歌开始播放')
+const currentArtist = computed(() => currentTrack.value?.artist || '首页热门单曲已接入播放器')
+const currentIsFavorite = computed(() => libraryStore.isFavorite(currentTrack.value?.id))
+const currentIsLocal = computed(() => libraryStore.isLocalTrack(currentTrack.value?.id))
+const commentSong = computed<SongCommentSeed | null>(() => {
+  const track = currentTrack.value
+
+  if (!track) {
+    return null
+  }
+
+  return {
+    id: track.id,
+    title: track.title,
+    artistNames: splitArtistNames(track.artist),
+    albumName: track.album,
+    coverUrl: track.coverUrl || FALLBACK_COVER_URL,
+    duration: track.durationMs,
+  }
+})
+
+function splitArtistNames(artist: string) {
+  const names = artist
+    .split(/\s*(?:\/|、|,|，)\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  return names.length ? names : ['未知歌手']
+}
 
 function handleProgressInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -92,137 +85,305 @@ function handleCoverError(event: Event) {
   img.dataset.fallbackApplied = 'true'
   img.src = FALLBACK_COVER_URL
 }
+
+function formatQueueIndex(index: number) {
+  return String(index + 1).padStart(2, '0')
+}
+
+function handleToggleCurrentFavorite() {
+  if (!currentTrack.value) {
+    return
+  }
+
+  libraryStore.toggleFavorite(currentTrack.value.id)
+}
+
+function handleDownloadCurrentTrack() {
+  if (!currentTrack.value) {
+    return
+  }
+
+  libraryStore.addLocalTrack(currentTrack.value)
+}
+
+function handleShowCurrentComments() {
+  if (!currentTrack.value) {
+    return
+  }
+
+  commentsVisible.value = true
+}
+
+function toggleQueuePanel() {
+  if (queue.value.length === 0) {
+    queuePanelVisible.value = false
+    return
+  }
+
+  queuePanelVisible.value = !queuePanelVisible.value
+}
+
+function closeQueuePanel() {
+  queuePanelVisible.value = false
+}
+
+function handleQueueTrackSelect(index: number) {
+  if (index < 0 || index >= queue.value.length) {
+    return
+  }
+
+  if (index === currentIndex.value) {
+    void playerStore.togglePlay()
+    return
+  }
+
+  void playerStore.playTrackAtIndex(index)
+}
+
+function handleDocumentPointerDown(event: MouseEvent) {
+  if (!queuePanelVisible.value) {
+    return
+  }
+
+  const target = event.target as Node | null
+
+  if (!target || playerShellRef.value?.contains(target)) {
+    return
+  }
+
+  closeQueuePanel()
+}
+
+function handleWindowKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    closeQueuePanel()
+  }
+}
+
+watch(
+  () => queue.value.length,
+  (length) => {
+    if (length === 0) {
+      closeQueuePanel()
+    }
+  },
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('mousedown', handleDocumentPointerDown)
+  window.addEventListener('keydown', handleWindowKeydown)
+}
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('mousedown', handleDocumentPointerDown)
+    window.removeEventListener('keydown', handleWindowKeydown)
+  }
+})
 </script>
 
 <template>
   <footer class="player" aria-label="Playback controls">
-    <div class="player__shell">
-      <button
-        class="player__meta"
-        type="button"
-        :disabled="!currentTrack"
-        aria-label="打开播放详情"
-        @click="playerStore.openDetail()"
-      >
-        <div class="player__cover-box">
-          <img
-            v-if="currentTrack?.coverUrl"
-            class="player__cover"
-            :src="currentTrack.coverUrl"
-            :alt="currentTrack.title"
-            referrerpolicy="no-referrer"
-            @error="handleCoverError"
-          />
-          <div v-else class="player__cover player__cover--placeholder" aria-hidden="true"></div>
-        </div>
-        <div class="player__copy">
-          <div class="player__name">{{ currentTrack?.title ?? '点击一首歌开始播放' }}</div>
-          <div class="player__artist">{{ currentTrack?.artist ?? '首页热门单曲已接入播放器' }}</div>
-          <div v-if="queueText" class="player__queue">{{ queueText }}</div>
-        </div>
-      </button>
+    <div ref="playerShellRef" class="player__shell">
+      <div class="player__meta">
+        <button
+          class="player__cover-button"
+          type="button"
+          :disabled="!currentTrack"
+          aria-label="打开播放详情"
+          @click="playerStore.openDetail()"
+        >
+          <div class="player__cover-box">
+            <img
+              v-if="currentTrack?.coverUrl"
+              class="player__cover"
+              :src="currentTrack.coverUrl"
+              :alt="currentTrack.title"
+              referrerpolicy="no-referrer"
+              @error="handleCoverError"
+            />
+            <div v-else class="player__cover player__cover--placeholder" aria-hidden="true"></div>
+          </div>
+        </button>
 
-      <div class="player__center">
-        <div class="player__transport">
+        <div class="player__meta-body">
           <button
-            class="player__icon-button player__skip player__skip--prev"
-            aria-label="Previous track"
-            :disabled="!hasPrevious"
-            @click="playerStore.playPreviousTrack()"
-          >
-            <span class="player__chevron"></span>
-            <span class="player__chevron"></span>
-          </button>
-          <button
-            class="player__play"
-            :aria-label="isPlaying ? 'Pause' : 'Play'"
+            class="player__identity"
+            type="button"
             :disabled="!currentTrack"
-            :class="{ 'player__play--loading': isLoading }"
-            @click="playerStore.togglePlay()"
+            aria-label="打开播放详情"
+            @click="playerStore.openDetail()"
           >
-            <span v-if="isLoading" class="player__loader" aria-hidden="true"></span>
-            <span v-else-if="isPlaying" class="player__pause-icon" aria-hidden="true">
-              <span></span>
-              <span></span>
-            </span>
-            <span v-else class="player__play-icon" aria-hidden="true"></span>
+            <div class="player__copy">
+              <div class="player__name-line">
+                <span class="player__name">{{ currentTitle }}</span>
+                <template v-if="hasCurrentTrack">
+                  <span class="player__separator" aria-hidden="true">-</span>
+                  <span class="player__artist">{{ currentArtist }}</span>
+                </template>
+              </div>
+            </div>
           </button>
-          <button
-            class="player__icon-button player__skip player__skip--next"
-            aria-label="Next track"
-            :disabled="!hasNext"
-            @click="playerStore.playNextTrack()"
-          >
-            <span class="player__chevron"></span>
-            <span class="player__chevron"></span>
-          </button>
-        </div>
 
-        <div class="player__timeline">
-          <span class="player__time">{{ currentTime }}</span>
-          <input
-            class="player__range player__range--progress"
-            :style="{ '--player-progress': `${progressPercent}%` }"
-            type="range"
-            min="0"
-            max="100"
-            step="0.1"
-            :value="progressPercent"
-            :disabled="!currentTrack"
-            @input="handleProgressInput"
-          />
-          <span class="player__time">{{ durationLabel }}</span>
-        </div>
+          <div class="player__track-actions" aria-label="Current song actions">
+            <button
+              class="player__track-action"
+              :class="{ 'player__track-action--favorite': currentIsFavorite }"
+              type="button"
+              :disabled="!currentTrack"
+              :title="currentIsFavorite ? '取消收藏' : '收藏歌曲'"
+              @click="handleToggleCurrentFavorite"
+            >
+              <Heart class="player__track-action-icon" :fill="currentIsFavorite ? 'currentColor' : 'none'" :stroke-width="2.1" />
+              <span>{{ currentIsFavorite ? '已收藏' : '收藏' }}</span>
+            </button>
 
-        <p class="player__status" :class="{ 'player__status--error': error }">
-          {{ statusText }}
-        </p>
+            <button
+              class="player__track-action"
+              :class="{ 'player__track-action--downloaded': currentIsLocal }"
+              type="button"
+              :disabled="!currentTrack"
+              :title="currentIsLocal ? '已在本地音乐' : '下载到本地音乐'"
+              @click="handleDownloadCurrentTrack"
+            >
+              <Download class="player__track-action-icon" :stroke-width="2.1" />
+              <span>{{ currentIsLocal ? '已下载' : '下载' }}</span>
+            </button>
+
+            <button
+              class="player__track-action"
+              type="button"
+              :disabled="!currentTrack"
+              title="查看歌曲评论"
+              @click="handleShowCurrentComments"
+            >
+              <MessageSquareText class="player__track-action-icon" :stroke-width="2.1" />
+              <span>评论</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="player__transport">
+        <button
+          class="player__icon-button player__skip player__skip--prev"
+          aria-label="Previous track"
+          :disabled="!hasPrevious"
+          @click="playerStore.playPreviousTrack()"
+        >
+          <span class="player__chevron"></span>
+          <span class="player__chevron"></span>
+        </button>
+        <button
+          class="player__play"
+          :aria-label="isPlaying ? 'Pause' : 'Play'"
+          :disabled="!currentTrack"
+          :class="{ 'player__play--loading': isLoading }"
+          @click="playerStore.togglePlay()"
+        >
+          <span v-if="isLoading" class="player__loader" aria-hidden="true"></span>
+          <span v-else-if="isPlaying" class="player__pause-icon" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </span>
+          <span v-else class="player__play-icon" aria-hidden="true"></span>
+        </button>
+        <button
+          class="player__icon-button player__skip player__skip--next"
+          aria-label="Next track"
+          :disabled="!hasNext"
+          @click="playerStore.playNextTrack()"
+        >
+          <span class="player__chevron"></span>
+          <span class="player__chevron"></span>
+        </button>
       </div>
 
       <div class="player__tools">
-        <button class="player__icon-button" :aria-label="volumeButtonLabel" @click="playerStore.toggleMute()">
-          <VolumeX v-if="isMuted || volumePercent === 0" class="player__lucide-icon" :stroke-width="1.85" />
-          <Volume2 v-else class="player__lucide-icon" :stroke-width="1.85" />
-        </button>
+        <div class="player__mix-console" aria-label="Volume and queue controls">
+          <button
+            class="player__icon-button player__icon-button--console"
+            :aria-label="volumeButtonLabel"
+            @click="playerStore.toggleMute()"
+          >
+            <VolumeX v-if="isMuted || volumePercent === 0" class="player__lucide-icon" :stroke-width="1.85" />
+            <Volume2 v-else class="player__lucide-icon" :stroke-width="1.85" />
+          </button>
+          <input
+            class="player__range player__range--volume"
+            :style="{ '--player-progress': `${volumePercent}%` }"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            :value="volumePercent"
+            @input="handleVolumeInput"
+          />
+          <button
+            class="player__icon-button player__icon-button--console"
+            :aria-label="queueButtonLabel"
+            :class="{ 'player__icon-button--active': queuePanelVisible }"
+            @click="toggleQueuePanel()"
+          >
+            <ListMusic class="player__lucide-icon" :stroke-width="1.85" />
+          </button>
+        </div>
+      </div>
+
+      <div class="player__timeline">
+        <span class="player__time">{{ currentTime }}</span>
         <input
-          class="player__range player__range--volume"
-          :style="{ '--player-progress': `${volumePercent}%` }"
+          class="player__range player__range--progress"
+          :style="{ '--player-progress': `${progressPercent}%` }"
           type="range"
           min="0"
           max="100"
-          step="1"
-          :value="volumePercent"
-          @input="handleVolumeInput"
-        />
-        <button class="player__icon-button" aria-label="Playlist">
-          <ListMusic class="player__lucide-icon" :stroke-width="1.85" />
-        </button>
-        <button
-          class="player__debug-button"
-          :class="{ 'player__debug-button--active': debugEnabled }"
-          type="button"
-          aria-label="Toggle debug panel"
-          @click="playerStore.toggleDebug()"
-        >
-          DBG
-        </button>
-        <button
-          class="player__icon-button"
-          aria-label="打开播放详情"
+          step="0.1"
+          :value="progressPercent"
           :disabled="!currentTrack"
-          @click="playerStore.openDetail()"
-        >
-          <FullScreen class="player__svg-icon" />
-        </button>
+          @input="handleProgressInput"
+        />
+        <span class="player__time">{{ durationLabel }}</span>
       </div>
 
-      <div v-if="debugEnabled" class="player__debug-panel" aria-label="Playback debug info">
-        <div v-for="[label, value] in debugRows" :key="label" class="player__debug-row">
-          <span class="player__debug-label">{{ label }}</span>
-          <span class="player__debug-value">{{ value }}</span>
+      <section v-if="queuePanelVisible" class="player__queue-panel" aria-label="播放队列">
+        <header class="player__queue-head">
+          <div class="player__queue-title">播放队列</div>
+          <div class="player__queue-meta">共{{ queue.length }}首</div>
+        </header>
+
+        <div class="player__queue-subline">{{ queueSourceText }}</div>
+
+        <div v-if="queue.length === 0" class="player__queue-empty">当前还没有待播歌曲。</div>
+
+        <div v-else class="player__queue-list">
+          <button
+            v-for="(track, index) in queue"
+            :key="`${track.id}-${index}`"
+            class="player__queue-item"
+            :class="{ 'player__queue-item--active': index === currentIndex }"
+            type="button"
+            @click="handleQueueTrackSelect(index)"
+          >
+            <div class="player__queue-order">{{ formatQueueIndex(index) }}</div>
+            <img
+              class="player__queue-cover"
+              :src="track.coverUrl || FALLBACK_COVER_URL"
+              :alt="track.title"
+              referrerpolicy="no-referrer"
+              @error="handleCoverError"
+            />
+            <div class="player__queue-copy">
+              <div class="player__queue-name">{{ track.title }}</div>
+              <div class="player__queue-artist">{{ track.artist }}</div>
+            </div>
+            <div class="player__queue-duration">{{ track.duration }}</div>
+          </button>
         </div>
-      </div>
+      </section>
     </div>
+
+    <SongCommentsDialog v-model="commentsVisible" :song="commentSong" />
   </footer>
 </template>
 
@@ -238,12 +399,14 @@ function handleCoverError(event: Event) {
   position: relative;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(220px, 260px);
+  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-areas:
+    'timeline timeline timeline'
+    'meta transport tools';
   align-items: center;
-  gap: 20px;
-  height: 74px;
+  gap: 10px 20px;
   min-height: 74px;
-  padding: 10px 18px;
+  padding: 10px 18px 12px;
   border-radius: 22px;
   background:
     linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
@@ -267,61 +430,87 @@ function handleCoverError(event: Event) {
 }
 
 .player__meta,
-.player__center,
-.player__tools {
+.player__transport,
+.player__tools,
+.player__timeline {
   position: relative;
   z-index: 1;
 }
 
 .player__meta {
+  grid-area: meta;
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  padding: 6px 10px;
-  border-radius: 16px;
-  background: rgba(20, 10, 46, 0.46);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  column-gap: 14px;
+  color: inherit;
+}
+
+.player__cover-button,
+.player__identity {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    transform 180ms ease;
+  transition: opacity 180ms ease;
 }
 
-.player__meta:disabled {
+.player__cover-button {
+  display: block;
+}
+
+.player__identity {
+  display: block;
+  width: 100%;
+}
+
+.player__meta-body {
+  min-width: 0;
+  height: 58px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.player__cover-button:disabled,
+.player__identity:disabled {
   cursor: default;
   opacity: 1;
 }
 
-.player__meta:not(:disabled):hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.14);
-  background: rgba(30, 13, 62, 0.6);
+.player__cover-button:not(:disabled):hover,
+.player__identity:not(:disabled):hover {
+  opacity: 0.88;
 }
 
-.player__meta:focus-visible {
-  outline: 2px solid rgba(255, 151, 224, 0.92);
+.player__cover-button:focus-visible,
+.player__identity:focus-visible,
+.player__track-action:focus-visible {
+  outline: 1px solid rgba(255, 151, 224, 0.7);
   outline-offset: 2px;
 }
 
 .player__cover-box {
-  width: 44px;
-  height: 44px;
-  padding: 3px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03));
+  flex: none;
+  width: 58px;
+  height: 58px;
 }
 
 .player__cover {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 9px;
+  border-radius: 10px;
   object-fit: cover;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 18px rgba(7, 6, 24, 0.2);
 }
 
 .player__cover--placeholder {
@@ -332,35 +521,105 @@ function handleCoverError(event: Event) {
 
 .player__copy {
   min-width: 0;
+  width: 100%;
+  padding-top: 6px;
+}
+
+.player__name-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.player__name,
+.player__artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .player__name {
+  max-width: 56%;
   color: #fff;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.2;
 }
 
+.player__separator {
+  flex: none;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .player__artist {
-  margin-top: 4px;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 10px;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 12px;
+  font-weight: 500;
   line-height: 1.2;
 }
 
-.player__queue {
-  margin-top: 4px;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 10px;
-  line-height: 1.2;
-}
-
-.player__center {
+.player__track-actions {
+  min-width: 0;
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(30px, 42px));
+  justify-content: start;
+  column-gap: 10px;
+  padding-top: 4px;
+}
+
+.player__track-action {
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.player__track-action:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.92);
+  transform: translateY(-1px);
+}
+
+.player__track-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.player__track-action--favorite {
+  color: #ff7485;
+}
+
+.player__track-action--downloaded {
+  color: #d8cbff;
+}
+
+.player__track-action-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .player__transport {
+  grid-area: transport;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -368,28 +627,17 @@ function handleCoverError(event: Event) {
 }
 
 .player__timeline {
+  grid-area: timeline;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .player__time {
   color: rgba(255, 255, 255, 0.7);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-}
-
-.player__status {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.56);
-  font-size: 11px;
-  line-height: 1.4;
-  text-align: center;
-}
-
-.player__status--error {
-  color: #ffd7e4;
 }
 
 .player__icon-button,
@@ -487,63 +735,28 @@ function handleCoverError(event: Event) {
 }
 
 .player__tools {
+  grid-area: tools;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 0;
 }
 
-.player__debug-button {
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.player__debug-button--active {
-  background: rgba(255, 118, 209, 0.16);
-  border-color: rgba(255, 118, 209, 0.34);
-}
-
-.player__debug-panel {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 12px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(10, 8, 30, 0.46);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.player__debug-row {
+.player__mix-console {
   min-width: 0;
-  display: grid;
-  gap: 4px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.player__debug-label,
-.player__debug-value {
-  min-width: 0;
-  font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+.player__icon-button--console {
+  flex: none;
 }
 
-.player__debug-label {
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 10px;
-  text-transform: uppercase;
-}
-
-.player__debug-value {
-  overflow-wrap: anywhere;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 11px;
-  line-height: 1.45;
+.player__icon-button--active {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .player__range {
@@ -582,12 +795,169 @@ function handleCoverError(event: Event) {
 }
 
 .player__range--volume {
-  max-width: 92px;
+  width: 104px;
+  min-width: 104px;
 }
 
-.player__svg-icon {
-  width: 14px;
-  height: 14px;
+.player__queue-panel {
+  position: absolute;
+  right: 18px;
+  bottom: calc(100% + 14px);
+  width: min(388px, calc(100vw - 42px));
+  max-height: min(520px, 62vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255, 104, 208, 0.12), transparent 22%),
+    radial-gradient(circle at 80% 16%, rgba(73, 166, 255, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(19, 15, 58, 0.96), rgba(15, 20, 64, 0.94));
+  border: 1px solid rgba(210, 202, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 28px 54px rgba(5, 7, 24, 0.34);
+  pointer-events: auto;
+}
+
+.player__queue-head,
+.player__queue-subline {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.player__queue-head {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.player__queue-title {
+  color: rgba(250, 250, 255, 0.96);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.player__queue-meta,
+.player__queue-subline {
+  color: rgba(221, 228, 255, 0.58);
+  font-size: 12px;
+}
+
+.player__queue-subline {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.player__queue-empty {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: rgba(226, 232, 255, 0.58);
+  font-size: 13px;
+  text-align: center;
+}
+
+.player__queue-list {
+  overflow: auto;
+  padding: 6px 0 10px;
+}
+
+.player__queue-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.player__queue-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: padding-box;
+}
+
+.player__queue-item {
+  width: calc(100% - 12px);
+  margin: 0 6px;
+  min-height: 68px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 34px 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.player__queue-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.player__queue-item--active {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.player__queue-order {
+  color: rgba(226, 233, 255, 0.5);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.player__queue-cover {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.player__queue-copy {
+  min-width: 0;
+}
+
+.player__queue-name,
+.player__queue-artist,
+.player__queue-duration {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player__queue-name {
+  color: rgba(248, 250, 255, 0.96);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.player__queue-item--active .player__queue-name,
+.player__queue-item--active .player__queue-duration {
+  color: #7fb0ff;
+}
+
+.player__queue-artist {
+  margin-top: 4px;
+  color: rgba(220, 228, 255, 0.58);
+  font-size: 12px;
+}
+
+.player__queue-duration {
+  padding-left: 8px;
+  color: rgba(235, 240, 255, 0.58);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .player__lucide-icon {
@@ -609,8 +979,13 @@ function handleCoverError(event: Event) {
 @media (max-width: 960px) {
   .player__shell {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'timeline'
+      'meta'
+      'transport'
+      'tools';
     justify-items: stretch;
-    gap: 14px;
+    gap: 12px;
     height: auto;
     min-height: 74px;
     padding: 14px;
@@ -619,6 +994,13 @@ function handleCoverError(event: Event) {
   .player__transport,
   .player__tools {
     justify-content: center;
+  }
+
+  .player__queue-panel {
+    right: 0;
+    left: 0;
+    width: 100%;
+    bottom: calc(100% + 10px);
   }
 }
 
@@ -633,6 +1015,19 @@ function handleCoverError(event: Event) {
 
   .player__debug-panel {
     grid-template-columns: 1fr;
+  }
+
+  .player__mix-console {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .player__queue-item {
+    grid-template-columns: 28px 40px minmax(0, 1fr);
+  }
+
+  .player__queue-duration {
+    display: none;
   }
 }
 </style>

@@ -43,6 +43,11 @@ const routes: Array<RouteRecordRaw> = [
         name: 'mini-player',
         component: () => import('@/views/MiniPlayer/index.vue'),
       },
+      {
+        path: 'local-music',
+        name: 'local-music',
+        component: () => import('@/views/LocalMusic/index.vue'),
+      },
     ],
   },
 ]

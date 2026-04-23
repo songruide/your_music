@@ -637,6 +637,7 @@ export const usePlayerStore = defineStore('player', () => {
     playPreviousTrack,
     playQueue,
     playTrack,
+    playTrackAtIndex,
     progressPercent,
     queue,
     seekToPercent,
