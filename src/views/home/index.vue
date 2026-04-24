@@ -52,7 +52,22 @@ onMounted(() => {
   flex-direction: column;
   gap: 24px;
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding-right: 6px;
   padding-bottom: 12px;
+  overflow: auto;
+}
+
+.home::-webkit-scrollbar {
+  width: 10px;
+}
+
+.home::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
 }
 
 .home__state,
@@ -61,13 +76,12 @@ onMounted(() => {
   place-items: center;
   min-height: 220px;
   padding: 28px;
-  border: 1px solid rgba(214, 207, 255, 0.16);
   border-radius: 28px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     rgba(19, 12, 61, 0.5);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 12px 28px rgba(10, 7, 31, 0.18);
   color: rgba(244, 242, 255, 0.84);
   text-align: center;
@@ -75,5 +89,14 @@ onMounted(() => {
 
 .home__state--error {
   color: #ffd7e4;
+}
+
+@media (max-width: 960px) {
+  .home {
+    height: auto;
+    min-height: 100%;
+    padding-right: 0;
+    overflow: visible;
+  }
 }
 </style>

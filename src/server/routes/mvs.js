@@ -23,15 +23,17 @@ import {
   HttpError,
   sendOk,
 } from '../utils/http.js'
-import { getLimit } from '../utils/params.js'
+import { getLimit, getOffset } from '../utils/params.js'
 
 const router = express.Router()
 
 router.get('/api/mvs/featured', createRouteHandler(async (req, res) => {
   const collection = getMvCollection(req.query.collection)
   const limit = Math.min(getLimit(req.query.limit, 12), 24)
-  const payload = await fetchNcm(collection.endpoint, collection.getParams(limit))
-  const items = getMvItemsFromPayload(payload)
+  const offset = getOffset(req.query.offset)
+  const payload = await fetchNcm(collection.endpoint, collection.getParams(limit, offset))
+  const rawItems = getMvItemsFromPayload(payload)
+  const items = rawItems
     .map((item) => normalizeFeaturedMvItem(item, collection))
     .filter((item) => item.id && item.title)
     .slice(0, limit)
@@ -47,7 +49,10 @@ router.get('/api/mvs/featured', createRouteHandler(async (req, res) => {
       label: collection.label,
       description: collection.description,
     },
+    hasMore: typeof payload?.hasMore === 'boolean' ? payload.hasMore : rawItems.length >= limit,
     items,
+    limit,
+    offset,
   })
 }))
 

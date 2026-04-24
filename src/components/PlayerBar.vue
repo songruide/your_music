@@ -2,11 +2,14 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Download, Heart, ListMusic, MessageSquareText, Volume2, VolumeX } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
-import { usePlayerStore } from '@/stores/player'
+import { usePlayerStore, type PlayerTrack } from '@/stores/player'
+import { buildSearchRoute } from '@/views/Search/utils'
 
+const router = useRouter()
 const playerStore = usePlayerStore()
 const libraryStore = useMusicLibraryStore()
 const FALLBACK_COVER_URL =
@@ -36,7 +39,8 @@ const queueSourceText = computed(() =>
 )
 const hasCurrentTrack = computed(() => Boolean(currentTrack.value))
 const currentTitle = computed(() => currentTrack.value?.title || '点击一首歌开始播放')
-const currentArtist = computed(() => currentTrack.value?.artist || '首页热门单曲已接入播放器')
+const currentArtists = computed(() => getTrackArtists(currentTrack.value))
+const currentArtist = computed(() => currentArtists.value.map((artist) => artist.name).join(' / ') || '首页热门单曲已接入播放器')
 const currentIsFavorite = computed(() => libraryStore.isFavorite(currentTrack.value?.id))
 const currentIsLocal = computed(() => libraryStore.isLocalTrack(currentTrack.value?.id))
 const commentSong = computed<SongCommentSeed | null>(() => {
@@ -49,7 +53,7 @@ const commentSong = computed<SongCommentSeed | null>(() => {
   return {
     id: track.id,
     title: track.title,
-    artistNames: splitArtistNames(track.artist),
+    artistNames: currentArtists.value.map((artist) => artist.name),
     albumName: track.album,
     coverUrl: track.coverUrl || FALLBACK_COVER_URL,
     duration: track.durationMs,
@@ -63,6 +67,30 @@ function splitArtistNames(artist: string) {
     .filter(Boolean)
 
   return names.length ? names : ['未知歌手']
+}
+
+function getTrackArtists(track: PlayerTrack | null | undefined) {
+  if (!track) {
+    return []
+  }
+
+  if (Array.isArray(track.artists) && track.artists.length > 0) {
+    const artists = track.artists
+      .map((artist) => ({
+        id: String(artist.id ?? '').trim(),
+        name: String(artist.name ?? '').trim(),
+      }))
+      .filter((artist) => artist.name)
+
+    if (artists.length > 0) {
+      return artists
+    }
+  }
+
+  return splitArtistNames(track.artist).map((name) => ({
+    id: '',
+    name,
+  }))
 }
 
 function handleProgressInput(event: Event) {
@@ -112,6 +140,34 @@ function handleShowCurrentComments() {
   }
 
   commentsVisible.value = true
+}
+
+async function handleOpenCurrentSong() {
+  const track = currentTrack.value
+
+  if (!track) {
+    return
+  }
+
+  await router.push(buildSearchRoute(track.title, 'song'))
+}
+
+async function handleOpenCurrentArtist(artist: { id?: string; name: string }) {
+  const artistName = String(artist.name ?? '').trim()
+
+  if (!artistName) {
+    return
+  }
+
+  if (artist.id) {
+    await router.push({
+      name: 'artist-detail',
+      params: { id: artist.id },
+    })
+    return
+  }
+
+  await router.push(buildSearchRoute(artistName, 'song'))
 }
 
 function toggleQueuePanel() {
@@ -207,23 +263,41 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="player__meta-body">
-          <button
-            class="player__identity"
-            type="button"
-            :disabled="!currentTrack"
-            aria-label="打开播放详情"
-            @click="playerStore.openDetail()"
-          >
+          <div class="player__identity" :class="{ 'player__identity--disabled': !currentTrack }">
             <div class="player__copy">
-              <div class="player__name-line">
+              <button
+                class="player__text-action player__text-action--title"
+                type="button"
+                :disabled="!currentTrack"
+                :title="currentTitle"
+                :aria-label="`搜索歌曲 ${currentTitle}`"
+                @click="handleOpenCurrentSong"
+              >
                 <span class="player__name">{{ currentTitle }}</span>
-                <template v-if="hasCurrentTrack">
-                  <span class="player__separator" aria-hidden="true">-</span>
-                  <span class="player__artist">{{ currentArtist }}</span>
+              </button>
+
+              <div
+                v-if="hasCurrentTrack && currentArtists.length > 0"
+                class="player__artist-list"
+                :title="currentArtist"
+              >
+                <template v-for="(artist, index) in currentArtists" :key="`${artist.id || artist.name}-${index}`">
+                  <button
+                    class="player__artist-link"
+                    type="button"
+                    :title="artist.name"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    @click="handleOpenCurrentArtist(artist)"
+                  >
+                    <span class="player__artist-name">{{ artist.name }}</span>
+                  </button>
+                  <span v-if="index < currentArtists.length - 1" class="player__artist-separator" aria-hidden="true"> / </span>
                 </template>
               </div>
+
+              <span v-else class="player__artist player__artist--placeholder">{{ currentArtist }}</span>
             </div>
-          </button>
+          </div>
 
           <div class="player__track-actions" aria-label="Current song actions">
             <button
@@ -442,14 +516,14 @@ onBeforeUnmount(() => {
   justify-self: start;
   min-width: 0;
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr);
   align-items: center;
-  column-gap: 10px;
+  column-gap: 12px;
   color: inherit;
 }
 
 .player__cover-button,
-.player__identity {
+.player__text-action {
   min-width: 0;
   padding: 0;
   border: 0;
@@ -469,6 +543,7 @@ onBeforeUnmount(() => {
 .player__identity {
   display: block;
   width: 100%;
+  min-width: 0;
 }
 
 .player__meta-body {
@@ -481,18 +556,19 @@ onBeforeUnmount(() => {
 }
 
 .player__cover-button:disabled,
-.player__identity:disabled {
+.player__text-action:disabled {
   cursor: default;
   opacity: 1;
 }
 
 .player__cover-button:not(:disabled):hover,
-.player__identity:not(:disabled):hover {
+.player__text-action:not(:disabled):hover {
   opacity: 0.88;
 }
 
 .player__cover-button:focus-visible,
-.player__identity:focus-visible,
+.player__text-action:focus-visible,
+.player__artist-link:focus-visible,
 .player__track-action:focus-visible {
   outline: 1px solid rgba(255, 151, 224, 0.7);
   outline-offset: 2px;
@@ -500,19 +576,19 @@ onBeforeUnmount(() => {
 
 .player__cover-box {
   flex: none;
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
 }
 
 .player__cover {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 8px;
+  border-radius: 12px;
   object-fit: cover;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 8px 18px rgba(7, 6, 24, 0.2);
+    0 10px 22px rgba(7, 6, 24, 0.24);
 }
 
 .player__cover--placeholder {
@@ -524,44 +600,96 @@ onBeforeUnmount(() => {
 .player__copy {
   min-width: 0;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding-top: 1px;
 }
 
-.player__name-line {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-  overflow: hidden;
-  white-space: nowrap;
+.player__text-action {
+  min-width: 0;
+  width: 100%;
+}
+
+.player__identity--disabled .player__copy {
+  gap: 3px;
 }
 
 .player__name,
 .player__artist {
+  display: block;
+  min-width: 0;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .player__name {
-  max-width: 56%;
   color: #fff;
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
 }
 
-.player__separator {
-  flex: none;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 9px;
-  font-weight: 600;
-}
-
-.player__artist {
+.player__artist-list {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 2px;
   color: rgba(255, 255, 255, 0.64);
   font-size: 10px;
   font-weight: 500;
   line-height: 1.2;
+}
+
+.player__artist-link {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease, opacity 180ms ease;
+}
+
+.player__artist-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.player__artist-name {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player__artist-separator {
+  flex: none;
+  color: rgba(255, 255, 255, 0.34);
+  white-space: pre;
+}
+
+.player__artist {
+  display: -webkit-box;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.player__artist--placeholder {
+  cursor: default;
 }
 
 .player__track-actions {

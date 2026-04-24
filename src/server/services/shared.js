@@ -1,23 +1,44 @@
 import { fetchNcm } from './ncm.js'
 
-export function getArtistNames(value) {
+export function getArtists(value) {
   if (Array.isArray(value)) {
     return value
       .map((artist) => {
         if (typeof artist === 'string') {
-          return artist
+          return {
+            id: '',
+            name: artist.trim(),
+          }
         }
 
-        return artist?.name
+        const name = String(artist?.name ?? '').trim()
+
+        if (!name) {
+          return null
+        }
+
+        return {
+          id: String(artist?.id ?? '').trim(),
+          name,
+        }
       })
       .filter(Boolean)
   }
 
   if (typeof value === 'string' && value.trim()) {
-    return [value.trim()]
+    return [
+      {
+        id: '',
+        name: value.trim(),
+      },
+    ]
   }
 
   return []
+}
+
+export function getArtistNames(value) {
+  return getArtists(value).map((artist) => artist.name)
 }
 
 export async function getSongCoverUrlsByIds(ids) {

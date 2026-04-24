@@ -18,7 +18,11 @@ export function formatTime(totalSeconds: number) {
 }
 
 export function cloneTrack(track: PlayerTrack): PlayerTrack {
-  return { ...track }
+  return {
+    ...track,
+    artists: track.artists?.map((artist) => ({ ...artist })),
+    sourceMeta: track.sourceMeta ? { ...track.sourceMeta } : undefined,
+  }
 }
 
 export function getTrackDurationSeconds(track: PlayerTrack | null | undefined) {

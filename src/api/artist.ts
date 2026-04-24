@@ -1,8 +1,10 @@
 import { request } from '@/utils/request'
+import type { ArtistRef } from '@/types/music'
 
 export interface ArtistSong {
   id: string
   name: string
+  artists: ArtistRef[]
   artistNames: string[]
   albumName: string
   coverUrl: string

@@ -18,17 +18,32 @@ function formatDuration(durationMs) {
 }
 
 function pickArtistName(song) {
+  return pickArtists(song)
+    .map((artist) => artist.name)
+    .join(' / ')
+}
+
+function pickArtists(song) {
   const artists = Array.isArray(song?.ar)
     ? song.ar
     : Array.isArray(song?.artists)
       ? song.artists
       : []
 
-  const names = artists
-    .map((artist) => String(artist?.name ?? '').trim())
-    .filter(Boolean)
+  return artists
+    .map((artist) => {
+      const name = String(artist?.name ?? '').trim()
 
-  return names.join(' / ')
+      if (!name) {
+        return null
+      }
+
+      return {
+        id: String(artist?.id ?? '').trim(),
+        name,
+      }
+    })
+    .filter(Boolean)
 }
 
 function pickAlbum(song) {
@@ -80,6 +95,7 @@ function normalizeRecentSongEntry(entry, index) {
   return {
     id,
     title,
+    artists: pickArtists(song),
     artist: pickArtistName(song) || '未知歌手',
     album: pickAlbum(song) || '单曲收藏',
     coverUrl: pickCoverUrl(song),

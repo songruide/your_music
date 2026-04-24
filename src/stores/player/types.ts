@@ -1,3 +1,5 @@
+import type { ArtistRef } from '@/types/music'
+
 export interface PlayerTrackSourceMeta {
   bitrate?: number
   directUrl?: string
@@ -12,6 +14,7 @@ export interface PlayerTrack {
   id: string
   title: string
   artist: string
+  artists?: ArtistRef[]
   album?: string
   coverUrl: string
   duration: string

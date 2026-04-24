@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { ArtistRef } from '@/types/music'
 
 export interface PlaylistCreator {
   id: string
@@ -9,6 +10,7 @@ export interface PlaylistCreator {
 export interface PlaylistTrack {
   id: string
   name: string
+  artists: ArtistRef[]
   artistNames: string[]
   albumName: string
   coverUrl: string

@@ -1,6 +1,6 @@
 import express from 'express'
 import { fetchNcm } from '../services/ncm.js'
-import { getArtistNames, getSongCoverUrlsByIds } from '../services/shared.js'
+import { getArtists, getArtistNames, getSongCoverUrlsByIds } from '../services/shared.js'
 import { createRouteHandler, getRequiredQueryString, sendOk } from '../utils/http.js'
 import { getLimit, getOffset } from '../utils/params.js'
 
@@ -21,7 +21,8 @@ router.get('/api/search/songs', createRouteHandler(async (req, res) => {
     id: String(item.id),
     name: item.name ?? '',
     coverUrl: item.album?.picUrl ?? item.al?.picUrl ?? '',
-    artistNames: (item.artists ?? item.ar ?? []).map((artist) => artist.name).filter(Boolean),
+    artists: getArtists(item.artists ?? item.ar),
+    artistNames: getArtistNames(item.artists ?? item.ar),
     albumName: item.album?.name ?? item.al?.name ?? '未知专辑',
     duration: item.duration ?? item.dt,
     playable: true,

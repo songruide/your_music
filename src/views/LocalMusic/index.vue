@@ -52,6 +52,7 @@ function toPlayerTrack(track: LocalMusicTrack): PlayerTrack {
     id: track.id,
     title: track.title,
     artist: track.artist,
+    artists: track.artists?.map((artist) => ({ ...artist })),
     album: track.album,
     coverUrl: track.coverUrl,
     duration: track.duration,
@@ -184,8 +185,9 @@ function handleRemoveTrack(trackId: string) {
 
 <style scoped lang="scss">
 .local-page {
-  min-height: 100%;
-  padding-bottom: 10px;
+  min-height: 0;
+  height: 100%;
+  display: flex;
   color: #fff;
 }
 
@@ -193,18 +195,21 @@ function handleRemoveTrack(trackId: string) {
 .local-board {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
   backdrop-filter: blur(24px);
 }
 
 .local-shell {
-  min-height: calc(100vh - 176px);
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
   padding: 10px 10px 12px;
+  display: flex;
+  flex-direction: column;
   background:
     linear-gradient(90deg, rgba(177, 55, 230, 0.96) 0%, rgba(89, 28, 152, 0.96) 23%, rgba(36, 18, 107, 0.98) 58%, rgba(15, 14, 61, 0.99) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 20px 38px rgba(9, 7, 32, 0.18);
 }
 
@@ -377,6 +382,8 @@ function handleRemoveTrack(trackId: string) {
 }
 
 .local-board {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   border-radius: 18px;
@@ -384,23 +391,25 @@ function handleRemoveTrack(trackId: string) {
     radial-gradient(circle at 14% 8%, rgba(245, 85, 205, 0.08), transparent 24%),
     radial-gradient(circle at 54% 100%, rgba(44, 190, 255, 0.12), transparent 24%),
     linear-gradient(180deg, rgba(7, 9, 34, 0.9), rgba(6, 8, 30, 0.82));
-  border-color: rgba(173, 112, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(6, 8, 28, 0.12);
 }
 
 .local-board__header {
   display: grid;
   grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 96px;
   gap: 14px;
-  padding: 12px 18px 11px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 18px 10px;
   color: rgba(228, 235, 255, 0.42);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
 
 .local-board__body {
-  max-height: min(66vh, 760px);
-  padding: 8px 0 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 0 10px;
   overflow: auto;
 }
 
@@ -445,6 +454,7 @@ function handleRemoveTrack(trackId: string) {
 @media (max-width: 720px) {
   .local-shell {
     min-height: calc(100vh - 156px);
+    height: auto;
     padding: 10px;
   }
 
@@ -461,6 +471,20 @@ function handleRemoveTrack(trackId: string) {
   .local-board__header span:nth-child(5),
   .local-board__header span:nth-child(6) {
     justify-self: end;
+  }
+}
+
+@media (max-width: 960px) {
+  .local-page {
+    min-height: 100%;
+    height: auto;
+    display: block;
+    padding-bottom: 10px;
+  }
+
+  .local-shell {
+    min-height: calc(100vh - 176px);
+    height: auto;
   }
 }
 

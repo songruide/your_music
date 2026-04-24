@@ -1,5 +1,6 @@
 import express from 'express'
 import { fetchNcm } from '../services/ncm.js'
+import { getArtists, getArtistNames } from '../services/shared.js'
 import { createRouteHandler, sendOk } from '../utils/http.js'
 import { getLimit } from '../utils/params.js'
 
@@ -62,7 +63,8 @@ router.get('/api/home/hot-songs', createRouteHandler(async (req, res) => {
     id: String(item.id ?? item.song?.id ?? ''),
     name: item.name ?? item.song?.name ?? '',
     coverUrl: item.picUrl ?? item.song?.album?.picUrl ?? item.song?.al?.picUrl ?? '',
-    artistNames: (item.song?.artists ?? item.song?.ar ?? []).map((artist) => artist.name),
+    artists: getArtists(item.song?.artists ?? item.song?.ar),
+    artistNames: getArtistNames(item.song?.artists ?? item.song?.ar),
     albumName: item.song?.album?.name ?? item.song?.al?.name ?? '单曲精选',
     duration: item.song?.duration ?? item.song?.dt,
     playable: true,

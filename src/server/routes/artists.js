@@ -1,6 +1,6 @@
 import express from 'express'
 import { fetchNcm } from '../services/ncm.js'
-import { getArtistNames } from '../services/shared.js'
+import { getArtists, getArtistNames } from '../services/shared.js'
 import {
   getMvCoverUrl,
   getMvDuration,
@@ -19,6 +19,7 @@ function mapArtistSong(item, fallbackArtistName) {
   return {
     id: String(item.id ?? ''),
     name: item.name ?? '',
+    artists: getArtists(item.ar ?? item.artists ?? fallbackArtistName),
     artistNames: getArtistNames(item.ar ?? item.artists ?? fallbackArtistName),
     albumName: item.al?.name ?? item.album?.name ?? '未知专辑',
     coverUrl: item.al?.picUrl ?? item.album?.picUrl ?? '',

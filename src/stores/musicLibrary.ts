@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useAuthStore } from './auth'
 import type { PlayerTrack, RecentPlayerTrack } from './player/types'
+import type { ArtistRef } from '@/types/music'
 
 const LIBRARY_STORAGE_KEY = 'your-music:music-library:v2'
 const LOCAL_MUSIC_LIMIT = 200
@@ -62,6 +63,7 @@ function clonePlayerTrack(track: PlayerTrack): PlayerTrack {
     id: track.id,
     title: track.title,
     artist: track.artist,
+    artists: track.artists?.map((artist) => ({ ...artist })),
     album: track.album,
     coverUrl: track.coverUrl,
     duration: track.duration,
@@ -70,6 +72,42 @@ function clonePlayerTrack(track: PlayerTrack): PlayerTrack {
     sourceMeta: track.sourceMeta ? { ...track.sourceMeta } : undefined,
     sourceExpiresAt: track.sourceExpiresAt,
   }
+}
+
+function normalizeTrackArtists(value: unknown, fallbackArtistLabel: string): ArtistRef[] {
+  if (Array.isArray(value)) {
+    const artists = value
+      .map((artist) => {
+        if (!artist || typeof artist !== 'object') {
+          return null
+        }
+
+        const name = String((artist as Partial<ArtistRef>).name ?? '').trim()
+
+        if (!name) {
+          return null
+        }
+
+        return {
+          id: String((artist as Partial<ArtistRef>).id ?? '').trim(),
+          name,
+        }
+      })
+      .filter((artist): artist is ArtistRef => Boolean(artist))
+
+    if (artists.length > 0) {
+      return artists
+    }
+  }
+
+  return fallbackArtistLabel
+    .split(/\s*(?:\/|、|,|，)\s*/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => ({
+      id: '',
+      name,
+    }))
 }
 
 function normalizeStoredTrack(value: unknown): StoredLibraryTrack | null {
@@ -86,6 +124,7 @@ function normalizeStoredTrack(value: unknown): StoredLibraryTrack | null {
     id,
     title,
     artist,
+    artists: normalizeTrackArtists(track.artists, artist),
     album: track.album ? String(track.album) : '单曲收藏',
     coverUrl: track.coverUrl ? String(track.coverUrl) : '',
     duration: track.duration ? String(track.duration) : '00:00',

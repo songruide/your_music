@@ -1,6 +1,6 @@
 import express from 'express'
 import { fetchNcm } from '../services/ncm.js'
-import { getArtistNames } from '../services/shared.js'
+import { getArtists, getArtistNames } from '../services/shared.js'
 import {
   createRouteHandler,
   getRequiredQueryString,
@@ -23,6 +23,7 @@ router.get('/api/albums/detail', createRouteHandler(async (req, res) => {
     .map((item) => ({
       id: String(item.id ?? ''),
       name: item.name ?? '',
+      artists: getArtists(item.ar ?? item.artists ?? album.artists),
       artistNames: getArtistNames(item.ar ?? item.artists ?? album.artists),
       albumName: item.al?.name ?? item.album?.name ?? album.name ?? '未知专辑',
       coverUrl: item.al?.picUrl ?? item.album?.picUrl ?? album.picUrl ?? album.blurPicUrl ?? '',

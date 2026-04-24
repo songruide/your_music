@@ -8,11 +8,11 @@ export const MV_COLLECTIONS = [
     badge: '精选',
     description: '热门 MV 一次看全，适合先逛一圈找今天的第一支视频。',
     endpoint: '/mv/all',
-    getParams(limit) {
+    getParams(limit, offset = 0) {
       return {
         area: '全部',
         limit,
-        offset: 0,
+        offset,
         order: '最热',
         type: '全部',
       }
@@ -24,11 +24,11 @@ export const MV_COLLECTIONS = [
     badge: '官方版',
     description: '更完整的主视觉和叙事表达，适合看完整制作感。',
     endpoint: '/mv/all',
-    getParams(limit) {
+    getParams(limit, offset = 0) {
       return {
         area: '全部',
         limit,
-        offset: 0,
+        offset,
         order: '最热',
         type: '官方版',
       }
@@ -40,11 +40,11 @@ export const MV_COLLECTIONS = [
     badge: '现场版',
     description: '收一点现场呼吸感，把舞台和掌声都带回来。',
     endpoint: '/mv/all',
-    getParams(limit) {
+    getParams(limit, offset = 0) {
       return {
         area: '全部',
         limit,
-        offset: 0,
+        offset,
         order: '最热',
         type: '现场版',
       }
@@ -56,10 +56,10 @@ export const MV_COLLECTIONS = [
     badge: '网易出品',
     description: '平台精选企划和独家内容，更适合慢慢挑着看。',
     endpoint: '/mv/exclusive/rcmd',
-    getParams(limit) {
+    getParams(limit, offset = 0) {
       return {
         limit,
-        offset: 0,
+        offset,
       }
     },
   },

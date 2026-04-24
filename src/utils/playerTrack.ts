@@ -1,4 +1,5 @@
 import type { PlayerTrack } from '@/stores/player/types'
+import type { ArtistRef } from '@/types/music'
 
 // 这是“页面层歌曲数据”的最小输入模型。
 // 它故意没有直接复用 PlayerTrack，因为页面拿到的原始数据和播放器真正消费的数据
@@ -7,10 +8,34 @@ import type { PlayerTrack } from '@/stores/player/types'
 export interface PlayableSongSeed {
   id: string
   title: string
-  artistNames: string[]
+  artistNames?: string[]
+  artists?: ArtistRef[]
   albumName?: string
   coverUrl: string
   durationMs?: number
+}
+
+function normalizeArtists(song: PlayableSongSeed): ArtistRef[] {
+  if (Array.isArray(song.artists) && song.artists.length > 0) {
+    return song.artists
+      .map((artist) => ({
+        id: String(artist.id ?? '').trim(),
+        name: String(artist.name ?? '').trim(),
+      }))
+      .filter((artist) => artist.name)
+  }
+
+  if (Array.isArray(song.artistNames)) {
+    return song.artistNames
+      .map((name) => String(name ?? '').trim())
+      .filter(Boolean)
+      .map((name) => ({
+        id: '',
+        name,
+      }))
+  }
+
+  return []
 }
 
 // 把“毫秒时长”格式化成播放器 UI 更容易直接显示的 mm:ss 文本。
@@ -39,6 +64,9 @@ export function formatDurationMs(value?: number) {
 // 这是一个很典型的“适配层”函数：外部数据长什么样不重要，
 // 只要都先经过这里，播放器内部就永远只处理一种稳定的数据结构。
 export function buildPlayerTrack(song: PlayableSongSeed): PlayerTrack {
+  const artists = normalizeArtists(song)
+  const artistLabel = artists.map((artist) => artist.name).join(' / ') || '未知歌手'
+
   return {
     // 直接沿用歌曲唯一标识，后续高亮当前歌曲、切歌、恢复播放状态都要依赖它。
     id: song.id,
@@ -48,7 +76,8 @@ export function buildPlayerTrack(song: PlayableSongSeed): PlayerTrack {
 
     // 页面层常常给的是歌手数组，这里统一拼成播放器展示用的字符串。
     // 如果数组为空，就给一个兜底文案，避免出现空字符串。
-    artist: song.artistNames.join(' / ') || '未知歌手',
+    artist: artistLabel,
+    artists,
 
     // 播放详情页会展示专辑名，因此在统一适配层里一并收敛，
     // 这样首页、搜索、歌单、专辑等所有入口都能共用。

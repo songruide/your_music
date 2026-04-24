@@ -96,11 +96,10 @@ function openPlaylistDetail(id: string) {
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
-  border: 1px solid rgba(214, 207, 255, 0.12);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.06);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
     0 10px 22px rgba(10, 8, 30, 0.14);
 }
 
@@ -122,7 +121,6 @@ function openPlaylistDetail(id: string) {
   padding: 0 10px;
   border-radius: 999px;
   background: rgba(16, 10, 38, 0.64);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 11px;
   color: rgba(255, 255, 255, 0.86);
 }

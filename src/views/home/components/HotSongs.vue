@@ -81,6 +81,7 @@ function mapSongToPlayerTrack(song: HomeSong) {
     ...buildPlayerTrack({
       id: song.id,
       title: song.name,
+      artists: song.artists,
       artistNames: song.artistNames,
       albumName: song.albumName,
       coverUrl: song.coverUrl,
@@ -111,7 +112,7 @@ function mapSongToPlayerTrack(song: HomeSong) {
   gap: 14px;
   padding: 12px;
   width: 100%;
-  border: 1px solid rgba(214, 207, 255, 0.12);
+  border: 0;
   border-radius: 20px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
@@ -129,7 +130,6 @@ function mapSongToPlayerTrack(song: HomeSong) {
 
 .song-item:hover {
   transform: translateY(-2px);
-  border-color: rgba(239, 231, 255, 0.24);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)),
     rgba(38, 25, 92, 0.5);
@@ -138,7 +138,6 @@ function mapSongToPlayerTrack(song: HomeSong) {
 
 // 当前播放歌曲高亮，形成“列表选择”和“底部播放器”之间的联动。
 .song-item--active {
-  border-color: rgba(255, 135, 223, 0.44);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
     rgba(54, 23, 92, 0.68);

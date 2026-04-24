@@ -36,7 +36,15 @@ export interface MvFeaturedItem extends MvPlaybackSeed {
 export interface MvFeaturedResponse {
   categories: MvFeaturedCategory[]
   collection: MvFeaturedCollectionInfo
+  hasMore: boolean
   items: MvFeaturedItem[]
+  limit: number
+  offset: number
+}
+
+export interface MvFeaturedQueryOptions {
+  limit?: number
+  offset?: number
 }
 
 export interface MvResolutionOption {
@@ -79,11 +87,15 @@ export interface MvPlaybackSource {
 
 // 精选页入口：拿“当前分组 + 卡片列表 + 顶部分类信息”。
 // 页面层只关心传 collection 和拿结果，不需要知道后端最终打了哪些 NCM 接口。
-export function getFeaturedMvs(collection: MvFeaturedCollection = 'all', limit = 12) {
+export function getFeaturedMvs(
+  collection: MvFeaturedCollection = 'all',
+  options: MvFeaturedQueryOptions = {},
+) {
   return request<MvFeaturedResponse>('/api/mvs/featured', {
     params: {
       collection,
-      limit,
+      limit: options.limit,
+      offset: options.offset,
     },
   })
 }

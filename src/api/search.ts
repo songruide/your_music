@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { ArtistRef } from '@/types/music'
 
 export type SearchCategory = 'song' | 'playlist' | 'mv'
 
@@ -8,6 +9,7 @@ export type SearchCategory = 'song' | 'playlist' | 'mv'
 export interface SearchSong {
   id: string
   name: string
+  artists: ArtistRef[]
   artistNames: string[]
   albumName: string
   coverUrl: string

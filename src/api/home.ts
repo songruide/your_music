@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { ArtistRef } from '@/types/music'
 
 export interface HomeBanner {
   id: string
@@ -29,6 +30,7 @@ export interface HomeSong {
   id: string
   name: string
   coverUrl: string
+  artists: ArtistRef[]
   artistNames: string[]
   albumName?: string
   duration?: number

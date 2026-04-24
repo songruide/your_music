@@ -29,6 +29,7 @@ function buildFavoriteTrack(song: SearchSong) {
   return buildPlayerTrack({
     id: song.id,
     title: song.name,
+    artists: song.artists,
     artistNames: song.artistNames,
     albumName: song.albumName,
     coverUrl: song.coverUrl,

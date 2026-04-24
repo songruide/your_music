@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import type { ArtistRef } from '@/types/music'
 
 export interface AlbumArtist {
   id: string
@@ -8,6 +9,7 @@ export interface AlbumArtist {
 export interface AlbumTrack {
   id: string
   name: string
+  artists: ArtistRef[]
   artistNames: string[]
   albumName: string
   coverUrl: string

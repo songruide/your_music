@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import {
   getFeaturedMvs,
   type MvFeaturedCategory,
@@ -52,6 +53,11 @@ const loading = ref(true)
 const error = ref('')
 const activeMv = ref<MvFeaturedItem | null>(null)
 const playerVisible = ref(false)
+const currentPage = ref(1)
+const hasMore = ref(false)
+const gridBodyRef = ref<HTMLElement | null>(null)
+
+const PAGE_SIZE = 12
 
 // requestToken 用来防止“旧请求覆盖新请求”。
 // 比如用户连续快速点“全部 -> 官方 -> 现场”，最慢返回的旧请求不应该把最新页面状态冲掉。
@@ -70,13 +76,22 @@ const collectionDescription = computed(() => {
 // 传入目标分组 -> 拉接口 -> 刷新顶部文案和卡片列表。
 // 它不直接依赖点击事件，因此后面如果要做路由同步或记忆上次分组，也只需要继续复用这里。
 async function loadFeatured(collection: MvFeaturedCollection) {
+  await loadFeaturedPage(collection, 1)
+}
+
+async function loadFeaturedPage(collection: MvFeaturedCollection, page: number) {
   const token = ++requestToken
+  const safePage = Math.max(1, Math.floor(page))
+  const offset = (safePage - 1) * PAGE_SIZE
 
   loading.value = true
   error.value = ''
 
   try {
-    const data = await getFeaturedMvs(collection, 12)
+    const data = await getFeaturedMvs(collection, {
+      limit: PAGE_SIZE,
+      offset,
+    })
 
     if (token !== requestToken) {
       return
@@ -85,13 +100,18 @@ async function loadFeatured(collection: MvFeaturedCollection) {
     categories.value = data.categories
     collectionInfo.value = data.collection
     activeCollection.value = data.collection.key
+    currentPage.value = safePage
+    hasMore.value = data.hasMore
     items.value = data.items
+    await nextTick()
+    gridBodyRef.value?.scrollTo({ top: 0, behavior: 'auto' })
   } catch (err) {
     if (token !== requestToken) {
       return
     }
 
     error.value = err instanceof Error ? err.message : 'MV 页面加载失败'
+    hasMore.value = false
   } finally {
     if (token === requestToken) {
       loading.value = false
@@ -107,7 +127,24 @@ function switchCollection(collection: MvFeaturedCollection) {
   }
 
   activeCollection.value = collection
-  void loadFeatured(collection)
+  currentPage.value = 1
+  void loadFeaturedPage(collection, 1)
+}
+
+function goToPreviousPage() {
+  if (loading.value || currentPage.value <= 1) {
+    return
+  }
+
+  void loadFeaturedPage(activeCollection.value, currentPage.value - 1)
+}
+
+function goToNextPage() {
+  if (loading.value || !hasMore.value) {
+    return
+  }
+
+  void loadFeaturedPage(activeCollection.value, currentPage.value + 1)
 }
 
 // 点击卡片时这里只做一件事：把当前选中的 MV 放进播放器弹层状态里。
@@ -159,28 +196,55 @@ onMounted(() => {
         </div>
       </header>
 
-      <div v-if="error" class="mv-stage__state mv-stage__state--error">{{ error }}</div>
+      <div ref="gridBodyRef" class="mv-stage__body">
+        <div v-if="error" class="mv-stage__state mv-stage__state--error">{{ error }}</div>
 
-      <div v-else-if="loading && items.length === 0" class="mv-grid mv-grid--skeleton" aria-hidden="true">
-        <div v-for="item in 8" :key="item" class="mv-skeleton">
-          <div class="mv-skeleton__media"></div>
-          <div class="mv-skeleton__body">
-            <div class="mv-skeleton__line mv-skeleton__line--short"></div>
-            <div class="mv-skeleton__line"></div>
-            <div class="mv-skeleton__line mv-skeleton__line--tiny"></div>
+        <div v-else-if="loading && items.length === 0" class="mv-grid mv-grid--skeleton" aria-hidden="true">
+          <div v-for="item in 8" :key="item" class="mv-skeleton">
+            <div class="mv-skeleton__media"></div>
+            <div class="mv-skeleton__body">
+              <div class="mv-skeleton__line mv-skeleton__line--short"></div>
+              <div class="mv-skeleton__line"></div>
+              <div class="mv-skeleton__line mv-skeleton__line--tiny"></div>
+            </div>
           </div>
         </div>
+
+        <div v-else-if="items.length === 0" class="mv-stage__state">这一组 MV 暂时还没有内容。</div>
+
+        <section v-else class="mv-grid">
+          <MvFeaturedCard v-for="mv in items" :key="mv.id" :mv="mv" @select="openMvResult" />
+        </section>
       </div>
 
-      <div v-else-if="items.length === 0" class="mv-stage__state">这一组 MV 暂时还没有内容。</div>
+      <footer class="mv-stage__footer">
+        <div v-if="loading && items.length > 0" class="mv-stage__loading-note">
+          正在切换到 {{ collectionInfo.label }}...
+        </div>
+        <div v-else class="mv-stage__loading-note"></div>
 
-      <section v-else class="mv-grid">
-        <MvFeaturedCard v-for="mv in items" :key="mv.id" :mv="mv" @select="openMvResult" />
-      </section>
-
-      <div v-if="loading && items.length > 0" class="mv-stage__loading-note">
-        正在切换到 {{ collectionInfo.label }}...
-      </div>
+        <div v-if="!error" class="mv-stage__pager" aria-label="MV 分页">
+          <button
+            class="mv-stage__pager-button"
+            type="button"
+            :disabled="loading || currentPage <= 1"
+            @click="goToPreviousPage"
+          >
+            <ChevronLeft class="mv-stage__pager-icon" :stroke-width="2" />
+            <span>上一页</span>
+          </button>
+          <span class="mv-stage__pager-label">第 {{ currentPage }} 页</span>
+          <button
+            class="mv-stage__pager-button"
+            type="button"
+            :disabled="loading || !hasMore"
+            @click="goToNextPage"
+          >
+            <span>下一页</span>
+            <ChevronRight class="mv-stage__pager-icon" :stroke-width="2" />
+          </button>
+        </div>
+      </footer>
     </article>
 
     <MvPlayerDialog v-model="playerVisible" :mv="activeMv" />
@@ -190,7 +254,9 @@ onMounted(() => {
 <style scoped lang="scss">
 .mv-page {
   width: 100%;
-  padding-bottom: 14px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
 }
 
 .mv-stage {
@@ -199,15 +265,18 @@ onMounted(() => {
   --mv-accent-strong: #ff4eb8;
   position: relative;
   overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 24px 18px 18px;
-  border: 1px solid rgba(203, 194, 255, 0.14);
   border-radius: 30px;
   background:
     radial-gradient(circle at 46% -6%, rgba(50, 170, 255, 0.42), transparent 28%),
     radial-gradient(circle at 10% 8%, rgba(206, 72, 255, 0.26), transparent 24%),
     linear-gradient(135deg, rgba(60, 12, 115, 0.96) 0%, rgba(32, 76, 161, 0.92) 34%, rgba(18, 20, 88, 0.98) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 24px 60px rgba(6, 7, 25, 0.24);
   isolation: isolate;
 }
@@ -265,6 +334,8 @@ onMounted(() => {
 }
 
 .mv-stage__hero,
+.mv-stage__body,
+.mv-stage__footer,
 .mv-grid,
 .mv-stage__state,
 .mv-stage__loading-note {
@@ -278,6 +349,24 @@ onMounted(() => {
   justify-content: space-between;
   gap: 20px;
   margin-bottom: 20px;
+}
+
+.mv-stage__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.mv-stage__body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.mv-stage__body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  background-clip: padding-box;
 }
 
 .mv-stage__copy {
@@ -326,7 +415,6 @@ onMounted(() => {
   padding: 0 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   color: rgba(250, 248, 255, 0.92);
   font-size: 10px;
 }
@@ -349,7 +437,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 0;
   border-radius: 999px;
   background: rgba(21, 18, 58, 0.36);
   color: rgba(229, 235, 255, 0.78);
@@ -374,7 +462,6 @@ onMounted(() => {
 .mv-stage__filter--active {
   color: #fff;
   background: linear-gradient(90deg, rgba(255, 70, 175, 0.94), rgba(176, 81, 255, 0.92));
-  border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 10px 20px rgba(237, 74, 194, 0.24);
 }
 
@@ -457,7 +544,6 @@ onMounted(() => {
   padding: 26px;
   border-radius: 24px;
   background: rgba(12, 12, 40, 0.44);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(239, 244, 255, 0.8);
   text-align: center;
 }
@@ -467,10 +553,62 @@ onMounted(() => {
 }
 
 .mv-stage__loading-note {
-  margin-top: 14px;
+  min-height: 16px;
   color: rgba(232, 237, 255, 0.58);
   font-size: 11px;
-  text-align: right;
+}
+
+.mv-stage__footer {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mv-stage__pager {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mv-stage__pager-button {
+  min-height: 30px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(244, 246, 255, 0.88);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    opacity 180ms ease;
+}
+
+.mv-stage__pager-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mv-stage__pager-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.mv-stage__pager-label {
+  color: rgba(228, 235, 255, 0.62);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.mv-stage__pager-icon {
+  width: 14px;
+  height: 14px;
 }
 
 @keyframes mv-skeleton-shine {
@@ -490,7 +628,16 @@ onMounted(() => {
 }
 
 @media (max-width: 920px) {
+  .mv-page {
+    height: auto;
+    min-height: 100%;
+    display: block;
+    padding-bottom: 10px;
+  }
+
   .mv-stage {
+    min-height: calc(100vh - 176px);
+    height: auto;
     padding: 20px 16px 16px;
     border-radius: 26px;
   }
@@ -509,6 +656,10 @@ onMounted(() => {
 }
 
 @media (max-width: 620px) {
+  .mv-stage {
+    min-height: calc(100vh - 156px);
+  }
+
   .mv-stage__summary {
     align-items: flex-start;
     flex-direction: column;
@@ -521,6 +672,16 @@ onMounted(() => {
 
   .mv-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mv-stage__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mv-stage__pager {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 </style>
