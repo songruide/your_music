@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { Download, MessageSquareMore } from 'lucide-vue-next'
+import { Download, Heart, MessageSquareMore } from 'lucide-vue-next'
 import type { SearchSong } from '@/api/search'
-import { formatDurationMs } from '@/utils/playerTrack'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
+import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, handleSearchCoverError } from '../utils'
+
+const libraryStore = useMusicLibraryStore()
 
 // 单曲表格保持“纯展示 + 事件抛出”的职责，
 // 选中歌曲后具体怎么播由页面 composable 决定。
@@ -17,6 +20,25 @@ const emit = defineEmits<{
   (event: 'select-track', song: SearchSong): void
   (event: 'show-comments', song: SearchSong): void
 }>()
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function buildFavoriteTrack(song: SearchSong) {
+  return buildPlayerTrack({
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl,
+    durationMs: song.duration,
+  })
+}
+
+function handleFavoriteSong(song: SearchSong) {
+  libraryStore.toggleFavorite(buildFavoriteTrack(song))
+}
 </script>
 
 <template>
@@ -86,6 +108,15 @@ const emit = defineEmits<{
         <div class="search-table__cell search-table__cell--actions">
           <button
             class="search-table__action"
+            :class="{ 'search-table__action--favorite': isFavoriteSong(song.id) }"
+            type="button"
+            :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
+            @click.stop="handleFavoriteSong(song)"
+          >
+            <Heart :stroke-width="1.9" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
+          </button>
+          <button
+            class="search-table__action"
             type="button"
             title="查看歌曲评论"
             @click.stop="emit('show-comments', song)"
@@ -108,7 +139,7 @@ const emit = defineEmits<{
 
 .search-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.15fr) minmax(180px, 1.1fr) 74px 92px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.15fr) minmax(180px, 1.1fr) 74px 124px;
   align-items: center;
   gap: 16px;
   min-height: 58px;
@@ -257,6 +288,10 @@ const emit = defineEmits<{
   background: rgba(255, 255, 255, 0.12);
 }
 
+.search-table__action--favorite {
+  color: #ff7e9f;
+}
+
 .search-table__action svg {
   width: 14px;
   height: 14px;
@@ -310,13 +345,13 @@ const emit = defineEmits<{
 
 @media (max-width: 1200px) {
   .search-table__row {
-    grid-template-columns: 38px minmax(220px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 86px;
+    grid-template-columns: 38px minmax(220px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 118px;
   }
 }
 
 @media (max-width: 960px) {
   .search-table__row {
-    grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 1fr) 64px 78px;
+    grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 1fr) 64px 110px;
   }
 
   .search-table__cell--album {

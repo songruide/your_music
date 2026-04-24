@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { useRoute } from 'vue-router'
 import { getAlbumDetail, type AlbumDetail, type AlbumTrack } from '@/api/album'
 import { usePlayerStore } from '@/stores/player'
@@ -15,6 +16,7 @@ const FALLBACK_COVER_URL =
 
 const route = useRoute()
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
 
 const loading = ref(true)
@@ -183,6 +185,14 @@ function openSongComments(song: AlbumTrack) {
     duration: song.duration,
   }
   songCommentsVisible.value = true
+}
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function toggleFavoriteSong(song: AlbumTrack) {
+  libraryStore.toggleFavorite(toPlayerTrack(song))
 }
 
 async function shareAlbum() {
@@ -376,6 +386,15 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="album-table__cell album-table__cell--actions">
+              <button
+                class="album-table__action"
+                :class="{ 'album-table__action--favorite': isFavoriteSong(song.id) }"
+                type="button"
+                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
+                @click.stop="toggleFavoriteSong(song)"
+              >
+                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
+              </button>
               <button
                 class="album-table__action"
                 type="button"
@@ -636,7 +655,7 @@ onBeforeUnmount(() => {
 
 .album-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px 78px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px 110px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -713,6 +732,7 @@ onBeforeUnmount(() => {
 .album-table__cell--actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .album-table__main {
@@ -783,6 +803,10 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.album-table__action--favorite {
+  color: #ff7e9f;
+}
+
 .album-table__equalizer {
   display: inline-flex;
   align-items: end;
@@ -850,7 +874,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px 72px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px 104px;
   }
 }
 
@@ -864,7 +888,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 34px minmax(0, 1fr) 64px 68px;
+    grid-template-columns: 34px minmax(0, 1fr) 64px 96px;
   }
 
   .album-table__cell--artist {
@@ -895,7 +919,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px 60px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 92px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -916,7 +940,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 26px minmax(0, 1fr) 48px;
+    grid-template-columns: 26px minmax(0, 1fr) 80px;
   }
 }
 </style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { DownloadCloud, FolderOpen, Play, Trash2 } from 'lucide-vue-next'
+import { Heart, Play, Trash2 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore, type LocalMusicTrack } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack } from '@/stores/player'
@@ -11,21 +11,22 @@ const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
 
-const { downloadedCollection } = storeToRefs(libraryStore)
+const { favoriteCollection } = storeToRefs(libraryStore)
 const { displayName, loggedIn } = storeToRefs(authStore)
 const { currentTrack } = storeToRefs(playerStore)
 
 const visibleTracks = computed<LocalMusicTrack[]>(() =>
-  downloadedCollection.value.map((track) => ({
+  favoriteCollection.value.map((track) => ({
     ...track,
-    isFavorite: libraryStore.isFavorite(track.id),
+    isFavorite: true,
   })),
 )
 const hasTracks = computed(() => visibleTracks.value.length > 0)
+const favoriteCount = computed(() => visibleTracks.value.length)
 const totalDurationLabel = computed(() => formatTotalDuration(visibleTracks.value))
 const collectionCopy = computed(() =>
   loggedIn.value
-    ? `${displayName.value} 的下载歌曲会单独保存。`
+    ? `${displayName.value} 的收藏歌曲会单独保存。`
     : '未登录时会保存到本机访客库，登录后会切换到对应账号。',
 )
 
@@ -101,14 +102,7 @@ function handleRemoveTrack(trackId: string) {
     return
   }
 
-  if (targetTrack.isDownloaded) {
-    libraryStore.removeLocalTrack(trackId)
-    return
-  }
-
-  if (targetTrack.isFavorite) {
-    libraryStore.toggleFavorite(targetTrack)
-  }
+  libraryStore.toggleFavorite(targetTrack)
 }
 </script>
 
@@ -121,14 +115,14 @@ function handleRemoveTrack(trackId: string) {
       <header class="local-toolbar">
         <div class="local-toolbar__group">
           <div class="local-chip local-chip--active">
-            <FolderOpen class="local-chip__icon" :stroke-width="2" />
-            <span>本地音乐</span>
-            <strong>{{ visibleTracks.length }}</strong>
+            <Heart class="local-chip__icon" :stroke-width="2" />
+            <span>收藏音乐</span>
+            <strong>{{ favoriteCount }}</strong>
           </div>
         </div>
 
         <div class="local-toolbar__group local-toolbar__group--actions">
-          <button class="local-action local-action--ghost" type="button" :disabled="!hasTracks" @click="libraryStore.clearLocalTracks">
+          <button class="local-action local-action--ghost" type="button" :disabled="!hasTracks" @click="libraryStore.clearFavoriteTracks">
             <Trash2 class="local-action__icon" :stroke-width="1.8" />
             <span>清空</span>
           </button>
@@ -141,8 +135,8 @@ function handleRemoveTrack(trackId: string) {
 
       <div class="local-meta">
         <p class="local-meta__text">
-          <DownloadCloud class="local-meta__icon" :stroke-width="1.8" />
-          <span>下载到本地的歌曲会显示在这里。</span>
+          <Heart class="local-meta__icon" :stroke-width="1.8" />
+          <span>收藏的歌曲会收进这里。</span>
           <span class="local-meta__dot"></span>
           <span>{{ collectionCopy }}</span>
           <span class="local-meta__dot"></span>
@@ -162,8 +156,8 @@ function handleRemoveTrack(trackId: string) {
 
         <div class="local-board__body">
           <div v-if="!hasTracks" class="local-state">
-            <DownloadCloud class="local-state__icon" :stroke-width="1.7" />
-            <span>这里还没有本地歌曲，先下载几首再回来。</span>
+            <Heart class="local-state__icon" :stroke-width="1.7" />
+            <span>这里还没有收藏歌曲，先去点几首喜欢再回来。</span>
           </div>
 
           <RecentTrackRow

@@ -5,6 +5,7 @@ import { Download, Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucid
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useRoute } from 'vue-router'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { getPlaylistDetail, type PlaylistDetail, type PlaylistTrack } from '@/api/playlist'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
@@ -15,6 +16,7 @@ const FALLBACK_COVER_URL =
 
 const route = useRoute()
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
 
 const loading = ref(true)
@@ -191,6 +193,14 @@ function openSongComments(song: PlaylistTrack) {
     duration: song.duration,
   }
   songCommentsVisible.value = true
+}
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function toggleFavoriteSong(song: PlaylistTrack) {
+  libraryStore.toggleFavorite(toPlayerTrack(song))
 }
 
 async function sharePlaylist() {
@@ -408,6 +418,15 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="playlist-table__cell playlist-table__cell--actions">
+              <button
+                class="playlist-table__action"
+                :class="{ 'playlist-table__action--favorite': isFavoriteSong(song.id) }"
+                type="button"
+                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
+                @click.stop="toggleFavoriteSong(song)"
+              >
+                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
+              </button>
               <button
                 class="playlist-table__action"
                 type="button"
@@ -725,7 +744,7 @@ onBeforeUnmount(() => {
 
 .playlist-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 92px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 124px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -871,6 +890,10 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.playlist-table__action--favorite {
+  color: #ff7e9f;
+}
+
 .playlist-table__equalizer {
   display: inline-flex;
   align-items: end;
@@ -938,7 +961,7 @@ onBeforeUnmount(() => {
   }
 
   .playlist-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 86px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 118px;
   }
 }
 
@@ -957,7 +980,7 @@ onBeforeUnmount(() => {
   }
 
   .playlist-table__row {
-    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 78px;
+    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 110px;
   }
 
   .playlist-table__cell--album {

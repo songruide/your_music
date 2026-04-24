@@ -95,7 +95,7 @@ function handleToggleCurrentFavorite() {
     return
   }
 
-  libraryStore.toggleFavorite(currentTrack.value.id)
+  libraryStore.toggleFavorite(currentTrack.value)
 }
 
 function handleDownloadCurrentTrack() {
@@ -232,10 +232,10 @@ onBeforeUnmount(() => {
               type="button"
               :disabled="!currentTrack"
               :title="currentIsFavorite ? '取消收藏' : '收藏歌曲'"
+              :aria-label="currentIsFavorite ? '取消收藏' : '收藏歌曲'"
               @click="handleToggleCurrentFavorite"
             >
               <Heart class="player__track-action-icon" :fill="currentIsFavorite ? 'currentColor' : 'none'" :stroke-width="2.1" />
-              <span>{{ currentIsFavorite ? '已收藏' : '收藏' }}</span>
             </button>
 
             <button
@@ -244,10 +244,10 @@ onBeforeUnmount(() => {
               type="button"
               :disabled="!currentTrack"
               :title="currentIsLocal ? '已在本地音乐' : '下载到本地音乐'"
+              :aria-label="currentIsLocal ? '已在本地音乐' : '下载到本地音乐'"
               @click="handleDownloadCurrentTrack"
             >
               <Download class="player__track-action-icon" :stroke-width="2.1" />
-              <span>{{ currentIsLocal ? '已下载' : '下载' }}</span>
             </button>
 
             <button
@@ -255,10 +255,10 @@ onBeforeUnmount(() => {
               type="button"
               :disabled="!currentTrack"
               title="查看歌曲评论"
+              aria-label="查看歌曲评论"
               @click="handleShowCurrentComments"
             >
               <MessageSquareText class="player__track-action-icon" :stroke-width="2.1" />
-              <span>评论</span>
             </button>
           </div>
         </div>
@@ -399,15 +399,15 @@ onBeforeUnmount(() => {
   position: relative;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(320px, 390px) minmax(0, 1fr) minmax(180px, 220px);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-areas:
     'timeline timeline timeline'
     'meta transport tools';
   align-items: center;
-  gap: 10px 20px;
-  min-height: 74px;
-  padding: 10px 18px 12px;
-  border-radius: 22px;
+  gap: 6px 16px;
+  min-height: 58px;
+  padding: 6px 14px 7px;
+  border-radius: 18px 18px 0 0;
   background:
     linear-gradient(90deg, rgba(55, 12, 88, 0.94) 0%, rgba(33, 38, 121, 0.92) 52%, rgba(18, 20, 71, 0.94) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -439,11 +439,12 @@ onBeforeUnmount(() => {
 
 .player__meta {
   grid-area: meta;
+  justify-self: start;
   min-width: 0;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 46px minmax(0, 1fr);
   align-items: center;
-  column-gap: 14px;
+  column-gap: 10px;
   color: inherit;
 }
 
@@ -472,10 +473,11 @@ onBeforeUnmount(() => {
 
 .player__meta-body {
   min-width: 0;
-  height: 58px;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
   align-items: start;
+  row-gap: 5px;
 }
 
 .player__cover-button:disabled,
@@ -498,15 +500,15 @@ onBeforeUnmount(() => {
 
 .player__cover-box {
   flex: none;
-  width: 58px;
-  height: 58px;
+  width: 46px;
+  height: 46px;
 }
 
 .player__cover {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 10px;
+  border-radius: 8px;
   object-fit: cover;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -522,13 +524,13 @@ onBeforeUnmount(() => {
 .player__copy {
   min-width: 0;
   width: 100%;
-  padding-top: 6px;
+  padding-top: 1px;
 }
 
 .player__name-line {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 5px;
   overflow: hidden;
   white-space: nowrap;
 }
@@ -543,7 +545,7 @@ onBeforeUnmount(() => {
 .player__name {
   max-width: 56%;
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -551,51 +553,45 @@ onBeforeUnmount(() => {
 .player__separator {
   flex: none;
   color: rgba(255, 255, 255, 0.42);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
 }
 
 .player__artist {
   color: rgba(255, 255, 255, 0.64);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
   line-height: 1.2;
 }
 
 .player__track-actions {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(30px, 42px));
-  justify-content: start;
-  column-gap: 10px;
-  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
 }
 
 .player__track-action {
-  min-width: 0;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   display: inline-flex;
-  flex-direction: column-reverse;
   align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
+  justify-content: center;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.62);
   cursor: pointer;
-  font: inherit;
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
   transition:
     color 180ms ease,
+    background 180ms ease,
     opacity 180ms ease,
     transform 180ms ease;
 }
 
 .player__track-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.92);
   transform: translateY(-1px);
 }
@@ -614,16 +610,17 @@ onBeforeUnmount(() => {
 }
 
 .player__track-action-icon {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .player__transport {
   grid-area: transport;
   display: flex;
+  justify-self: center;
   justify-content: center;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .player__timeline {
@@ -631,12 +628,12 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .player__time {
   color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -652,8 +649,8 @@ onBeforeUnmount(() => {
 }
 
 .player__icon-button {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: transparent;
 }
@@ -678,14 +675,14 @@ onBeforeUnmount(() => {
 }
 
 .player__chevron {
-  width: 7px;
-  height: 10px;
+  width: 5px;
+  height: 8px;
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 .player__play {
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: linear-gradient(180deg, #f45fe6, #bb46f0);
   box-shadow:
@@ -706,8 +703,8 @@ onBeforeUnmount(() => {
 }
 
 .player__play-icon {
-  width: 10px;
-  height: 12px;
+  width: 8px;
+  height: 10px;
   margin-left: 2px;
   clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
@@ -720,14 +717,14 @@ onBeforeUnmount(() => {
 
 .player__pause-icon span {
   width: 3px;
-  height: 12px;
+  height: 9px;
   border-radius: 999px;
   background: currentColor;
 }
 
 .player__loader {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   border: 2px solid rgba(255, 255, 255, 0.34);
   border-top-color: #fff;
   border-radius: 50%;
@@ -737,6 +734,7 @@ onBeforeUnmount(() => {
 .player__tools {
   grid-area: tools;
   display: flex;
+  justify-self: end;
   justify-content: flex-end;
   align-items: center;
   gap: 0;
@@ -744,11 +742,11 @@ onBeforeUnmount(() => {
 
 .player__mix-console {
   min-width: 0;
-  height: 30px;
+  height: 24px;
   padding: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .player__icon-button--console {
@@ -763,7 +761,7 @@ onBeforeUnmount(() => {
   --player-progress: 0%;
   appearance: none;
   width: 100%;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
   outline: none;
   background:
@@ -777,8 +775,8 @@ onBeforeUnmount(() => {
 
 .player__range::-webkit-slider-thumb {
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -786,8 +784,8 @@ onBeforeUnmount(() => {
 }
 
 .player__range::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border: 0;
   border-radius: 50%;
   background: #fff;
@@ -795,8 +793,8 @@ onBeforeUnmount(() => {
 }
 
 .player__range--volume {
-  width: 104px;
-  min-width: 104px;
+  width: 88px;
+  min-width: 88px;
 }
 
 .player__queue-panel {
@@ -961,8 +959,8 @@ onBeforeUnmount(() => {
 }
 
 .player__lucide-icon {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -985,10 +983,11 @@ onBeforeUnmount(() => {
       'transport'
       'tools';
     justify-items: stretch;
-    gap: 12px;
+    gap: 10px;
     height: auto;
-    min-height: 74px;
-    padding: 14px;
+    min-height: 58px;
+    padding: 10px 12px;
+    border-radius: 18px 18px 0 0;
   }
 
   .player__transport,

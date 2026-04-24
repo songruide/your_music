@@ -7,6 +7,7 @@ import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArtistDetail, type ArtistDetail, type ArtistMv, type ArtistSong } from '@/api/artist'
 import type { MvPlaybackSeed } from '@/api/mv'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { debounce } from '@/utils/timing'
@@ -18,6 +19,7 @@ const FALLBACK_COVER_URL =
 const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
 
 const loading = ref(true)
@@ -174,6 +176,14 @@ function openSongComments(song: ArtistSong) {
     duration: song.duration,
   }
   songCommentsVisible.value = true
+}
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function toggleFavoriteSong(song: ArtistSong) {
+  libraryStore.toggleFavorite(toPlayerTrack(song))
 }
 
 function openMv(mv: ArtistMv) {
@@ -434,6 +444,15 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="artist-table__cell artist-table__cell--actions">
+              <button
+                class="artist-table__action"
+                :class="{ 'artist-table__action--favorite': isFavoriteSong(song.id) }"
+                type="button"
+                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
+                @click.stop="toggleFavoriteSong(song)"
+              >
+                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
+              </button>
               <button
                 class="artist-table__action"
                 type="button"
@@ -798,7 +817,7 @@ onBeforeUnmount(() => {
 
 .artist-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 78px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 110px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -875,6 +894,7 @@ onBeforeUnmount(() => {
 .artist-table__cell--actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .artist-table__main {
@@ -944,6 +964,10 @@ onBeforeUnmount(() => {
 .artist-table__action:hover {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.14);
+}
+
+.artist-table__action--favorite {
+  color: #ff7e9f;
 }
 
 .artist-table__equalizer {
@@ -1139,7 +1163,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 72px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 104px;
   }
 }
 
@@ -1158,7 +1182,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 68px;
+    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 96px;
   }
 
   .artist-table__cell--album {
@@ -1190,7 +1214,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px 60px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 92px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -1223,7 +1247,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 26px minmax(0, 1fr) 48px;
+    grid-template-columns: 26px minmax(0, 1fr) 80px;
   }
 
   .artist-mv-grid,

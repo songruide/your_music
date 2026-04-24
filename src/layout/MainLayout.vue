@@ -45,8 +45,8 @@ void authStore.initialize()
 
 <style scoped lang="scss">
 .layout {
-  --layout-player-height: 74px;
-  --layout-player-bottom: 18px;
+  --layout-player-height: 62px;
+  --layout-player-bottom: 0px;
   position: relative;
   height: 100dvh;
   min-height: 100vh;

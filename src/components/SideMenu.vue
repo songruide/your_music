@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  BellFilled,
   Clock,
   FolderOpened,
   HomeFilled,
@@ -9,6 +8,7 @@ import {
   TrendCharts,
   VideoPlay,
 } from '@element-plus/icons-vue'
+import { Heart } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -42,7 +42,7 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
     items: [
       { label: '最近播放', icon: Clock, to: '/mini-player' },
       { label: '本地音乐', icon: FolderOpened, to: '/local-music' },
-      { label: '新歌上架', icon: BellFilled, muted: true },
+      { label: '收藏音乐', icon: Heart, to: '/favorite-music' },
     ],
   },
   {

@@ -62,7 +62,7 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
         :class="{ 'history-row__icon--favorite': track.isFavorite }"
         type="button"
         :title="favoriteTitle"
-        @click="emit('toggle-favorite', track.id)"
+        @click.stop="emit('toggle-favorite', track.id)"
       >
         <Heart :stroke-width="2" :fill="track.isFavorite ? 'currentColor' : 'none'" />
       </button>
@@ -70,8 +70,8 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
       <button
         class="history-row__icon"
         type="button"
-        title="从最近播放移除"
-        @click="emit('remove-track', track.id)"
+        title="从列表移除"
+        @click.stop="emit('remove-track', track.id)"
       >
         <MoreVertical :stroke-width="2" />
       </button>
