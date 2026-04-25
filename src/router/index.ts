@@ -34,6 +34,11 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/Search/index.vue'),
       },
       {
+        path: 'discover/:section',
+        name: 'home-discover',
+        component: () => import('@/views/HomeDiscover/index.vue'),
+      },
+      {
         path: 'mv',
         name: 'mv',
         component: () => import('@/views/Mv/index.vue'),

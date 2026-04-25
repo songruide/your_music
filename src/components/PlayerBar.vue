@@ -6,7 +6,9 @@ import { useRouter } from 'vue-router'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
-import { usePlayerStore, type PlayerTrack } from '@/stores/player'
+import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { getPlayerTrackArtists } from '@/utils/playerArtists'
 import { buildSearchRoute } from '@/views/Search/utils'
 
 const router = useRouter()
@@ -39,7 +41,7 @@ const queueSourceText = computed(() =>
 )
 const hasCurrentTrack = computed(() => Boolean(currentTrack.value))
 const currentTitle = computed(() => currentTrack.value?.title || '点击一首歌开始播放')
-const currentArtists = computed(() => getTrackArtists(currentTrack.value))
+const currentArtists = computed(() => getPlayerTrackArtists(currentTrack.value))
 const currentArtist = computed(() => currentArtists.value.map((artist) => artist.name).join(' / ') || '首页热门单曲已接入播放器')
 const currentIsFavorite = computed(() => libraryStore.isFavorite(currentTrack.value?.id))
 const currentIsLocal = computed(() => libraryStore.isLocalTrack(currentTrack.value?.id))
@@ -59,39 +61,6 @@ const commentSong = computed<SongCommentSeed | null>(() => {
     duration: track.durationMs,
   }
 })
-
-function splitArtistNames(artist: string) {
-  const names = artist
-    .split(/\s*(?:\/|、|,|，)\s*/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-
-  return names.length ? names : ['未知歌手']
-}
-
-function getTrackArtists(track: PlayerTrack | null | undefined) {
-  if (!track) {
-    return []
-  }
-
-  if (Array.isArray(track.artists) && track.artists.length > 0) {
-    const artists = track.artists
-      .map((artist) => ({
-        id: String(artist.id ?? '').trim(),
-        name: String(artist.name ?? '').trim(),
-      }))
-      .filter((artist) => artist.name)
-
-    if (artists.length > 0) {
-      return artists
-    }
-  }
-
-  return splitArtistNames(track.artist).map((name) => ({
-    id: '',
-    name,
-  }))
-}
 
 function handleProgressInput(event: Event) {
   const input = event.target as HTMLInputElement
@@ -152,7 +121,7 @@ async function handleOpenCurrentSong() {
   await router.push(buildSearchRoute(track.title, 'song'))
 }
 
-async function handleOpenCurrentArtist(artist: { id?: string; name: string }) {
+async function handleOpenCurrentArtist(artist: ArtistRef) {
   const artistName = String(artist.name ?? '').trim()
 
   if (!artistName) {

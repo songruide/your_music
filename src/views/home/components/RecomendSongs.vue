@@ -5,7 +5,13 @@
             <span class="block__eyebrow">Discover</span>
             <h2>推荐歌单</h2>
           </div>
-          <button class="block__action" type="button">查看全部</button>
+          <button
+            class="block__action"
+            type="button"
+            @click="openDiscoverPage"
+          >
+            更多推荐
+          </button>
         </div>
 
         <div class="playlist-grid">
@@ -63,6 +69,13 @@ const props = defineProps<{
 
 function openPlaylistDetail(id: string) {
   void router.push(`/playlist/${id}`)
+}
+
+function openDiscoverPage() {
+  void router.push({
+    name: 'home-discover',
+    params: { section: 'playlists' },
+  })
 }
 </script>
 

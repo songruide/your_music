@@ -13,14 +13,19 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { getSongLyrics } from '@/api/player'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
 import { mergeLyrics, type ParsedLyricLine } from '@/utils/lyrics'
+import { getPlayerTrackArtists } from '@/utils/playerArtists'
+import { buildSearchRoute } from '@/views/Search/utils'
 
 const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360' viewBox='0 0 360 360'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff6cb8'/%3E%3Cstop offset='1' stop-color='%2368a7ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='360' height='360' rx='64' fill='url(%23g)'/%3E%3Ccircle cx='180' cy='138' r='48' fill='rgba(255,255,255,.72)'/%3E%3Crect x='92' y='218' width='176' height='54' rx='27' fill='rgba(255,255,255,.46)'/%3E%3C/svg%3E"
 const ACTIVE_LYRIC_LEAD_SECONDS = 0.38
 
+const router = useRouter()
 const playerStore = usePlayerStore()
 const {
   currentIndex,
@@ -50,6 +55,8 @@ let previousBodyOverflow = ''
 
 const displayCover = computed(() => currentTrack.value?.coverUrl || FALLBACK_COVER_URL)
 const displayAlbum = computed(() => currentTrack.value?.album?.trim() || '单曲收藏')
+const currentArtists = computed(() => getPlayerTrackArtists(currentTrack.value))
+const displayArtist = computed(() => currentArtists.value.map((artist) => artist.name).join(' / ') || '未知歌手')
 const queueCaption = computed(() => {
   if (queue.value.length <= 1 || currentIndex.value < 0) {
     return '当前播放'
@@ -98,6 +105,26 @@ const lyricsStateText = computed(() => {
 
 function closeDialog() {
   playerStore.closeDetail()
+}
+
+async function openArtist(artist: ArtistRef) {
+  const artistName = artist.name.trim()
+
+  if (!artistName) {
+    return
+  }
+
+  closeDialog()
+
+  if (artist.id) {
+    await router.push({
+      name: 'artist-detail',
+      params: { id: artist.id },
+    })
+    return
+  }
+
+  await router.push(buildSearchRoute(artistName, 'song'))
 }
 
 function setActiveLineRef(element: Element | null, index: number) {
@@ -284,7 +311,20 @@ onBeforeUnmount(() => {
                 <span>Now Playing</span>
               </div>
               <h2 class="player-detail__title">{{ currentTrack.title }}</h2>
-              <p class="player-detail__artist">{{ currentTrack.artist }}</p>
+              <div class="player-detail__artist-list" :title="displayArtist">
+                <template v-for="(artist, index) in currentArtists" :key="`${artist.id || artist.name}-${index}`">
+                  <button
+                    class="player-detail__artist-link"
+                    type="button"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    :title="artist.name"
+                    @click="openArtist(artist)"
+                  >
+                    {{ artist.name }}
+                  </button>
+                  <span v-if="index < currentArtists.length - 1" class="player-detail__artist-separator">/</span>
+                </template>
+              </div>
               <p class="player-detail__album-name">{{ displayAlbum }}</p>
             </div>
 
@@ -730,17 +770,48 @@ onBeforeUnmount(() => {
   letter-spacing: -0.03em;
 }
 
-.player-detail__artist,
+.player-detail__artist-list,
 .player-detail__album-name,
 .player-detail__status {
   margin: 0;
   color: rgba(44, 49, 65, 0.58);
 }
 
-.player-detail__artist {
+.player-detail__artist-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 3px 7px;
   font-size: 10px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
+}
+
+.player-detail__artist-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.player-detail__artist-link:hover,
+.player-detail__artist-link:focus-visible {
+  outline: none;
+  color: rgba(34, 37, 51, 0.86);
+  transform: translateY(-1px);
+}
+
+.player-detail__artist-separator {
+  color: rgba(44, 49, 65, 0.3);
 }
 
 .player-detail__album-name {

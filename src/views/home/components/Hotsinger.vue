@@ -5,7 +5,13 @@
         <span class="block__eyebrow">Artists</span>
         <h2>热门歌手</h2>
       </div>
-      <button class="block__action" type="button">查看更多</button>
+      <button
+        class="block__action"
+        type="button"
+        @click="openDiscoverPage"
+      >
+        查看更多
+      </button>
     </div>
 
     <div class="artist-row">
@@ -49,6 +55,13 @@ function openArtist(id: string) {
   void router.push({
     name: 'artist-detail',
     params: { id },
+  })
+}
+
+function openDiscoverPage() {
+  void router.push({
+    name: 'home-discover',
+    params: { section: 'artists' },
   })
 }
 </script>

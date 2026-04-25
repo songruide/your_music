@@ -35,9 +35,13 @@ function buildUrl(path: string, params?: Record<string, QueryValue>) {
   return API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
 }
 
-function resolveBody(body: RequestOptions['body'], headers: Headers) {
-  if (!body || !isPlainObject(body)) {
-    return body
+function resolveBody(body: unknown, headers: Headers): BodyInit | null | undefined {
+  if (body == null) {
+    return body as null | undefined
+  }
+
+  if (!isPlainObject(body)) {
+    return body as BodyInit
   }
 
   if (!headers.has('Content-Type')) {

@@ -5,7 +5,13 @@
             <span class="block__eyebrow">Tracks</span>
             <h2>热门单曲</h2>
           </div>
-          <button class="block__action" type="button">更多曲目</button>
+          <button
+            class="block__action"
+            type="button"
+            @click="openDiscoverPage"
+          >
+            更多曲目
+          </button>
         </div>
 
         <div class="song-list">
@@ -36,12 +42,14 @@
       </section>
 </template>
 
-<script setup lang="ts" scoped>
-import{ type HomeSong } from '@/api/home'
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { type HomeSong } from '@/api/home'
 import { storeToRefs } from 'pinia'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
+const router = useRouter()
 const playerStore = usePlayerStore()
 // 取出当前正在播放的歌曲，用来给列表里的对应项做高亮。
 const { currentTrack } = storeToRefs(playerStore)
@@ -90,6 +98,12 @@ function mapSongToPlayerTrack(song: HomeSong) {
   }
 }
 
+function openDiscoverPage() {
+  void router.push({
+    name: 'home-discover',
+    params: { section: 'songs' },
+  })
+}
 </script>
 
 <style lang="scss" scoped>

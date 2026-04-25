@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowLeft } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import PlayerDetailDialog from '@/components/PlayerDetailDialog.vue'
@@ -6,13 +8,27 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 import AuthDialog from '@/components/AuthDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 
+const router = useRouter()
 const authStore = useAuthStore()
 
 void authStore.initialize()
+
+function goBack() {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    router.back()
+    return
+  }
+
+  void router.push({ name: 'home' })
+}
 </script>
 
 <template>
   <div class="layout">
+    <button class="layout__back-button" type="button" aria-label="返回上一页" title="返回上一页" @click="goBack">
+      <ArrowLeft class="layout__back-icon" :stroke-width="2.2" />
+    </button>
+
     <div class="layout__aurora">
       <span class="light light--pink"></span>
       <span class="light light--cyan"></span>
@@ -30,7 +46,9 @@ void authStore.initialize()
       </div>
 
       <div class="layout__view">
-        <RouterView />
+        <div class="layout__view-scroll">
+          <RouterView />
+        </div>
       </div>
     </section>
 
@@ -61,6 +79,40 @@ void authStore.initialize()
   overflow: hidden;
   isolation: isolate;
   background: var(--app-panel-bg);
+}
+
+.layout__back-button {
+  position: absolute;
+  top: 26px;
+  left: 185px;
+  z-index: 8;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.54);
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.layout__back-button:hover,
+.layout__back-button:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  color: rgba(255, 255, 255, 0.82);
+  opacity: 1;
+}
+
+.layout__back-icon {
+  width: 17px;
+  height: 17px;
 }
 
 .layout::before {
@@ -204,7 +256,7 @@ void authStore.initialize()
   min-height: 0;
   height: 100%;
   padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 8px);
-  padding-top: 10px;
+  padding-top: 36px;
 }
 
 .layout__main {
@@ -244,15 +296,25 @@ void authStore.initialize()
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
-.layout__view::-webkit-scrollbar {
+.layout__view-scroll {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.layout__view-scroll::-webkit-scrollbar {
   width: 10px;
 }
 
-.layout__view::-webkit-scrollbar-thumb {
+.layout__view-scroll::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
@@ -272,6 +334,11 @@ void authStore.initialize()
       'player';
     row-gap: 18px;
     padding: 16px 14px 20px;
+  }
+
+  .layout__back-button {
+    top: 18px;
+    left: 14px;
   }
 
   .layout__main {
@@ -294,8 +361,15 @@ void authStore.initialize()
     overflow: visible;
   }
 
+  .layout__view-scroll {
+    height: auto;
+    padding-right: 0;
+    overflow: visible;
+  }
+
   .layout__aside {
     padding-bottom: 0;
+    padding-top: 40px;
   }
 
   .layout__player {

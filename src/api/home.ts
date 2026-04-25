@@ -17,6 +17,7 @@ export interface HomePlaylist {
   coverUrl: string
   playCount?: number
   description?: string
+  trackCount?: number
 }
 
 export interface HomeArtist {
@@ -24,6 +25,8 @@ export interface HomeArtist {
   name: string
   avatarUrl: string
   musicCount?: number
+  albumCount?: number
+  mvCount?: number
 }
 
 export interface HomeSong {
@@ -51,28 +54,76 @@ export interface HomePageOptions {
   songLimit?: number
 }
 
+export interface HomePlaylistOptions {
+  cat?: string
+  limit?: number
+  offset?: number
+  order?: 'hot' | 'new'
+}
+
+export interface HomeArtistOptions {
+  area?: number
+  initial?: string | number
+  limit?: number
+  offset?: number
+  type?: number
+}
+
+export interface HomeSongOptions {
+  limit?: number
+  offset?: number
+  source?: 'recommend' | 'top'
+  type?: number
+}
+
+export interface PlaylistCategoryGroup {
+  id: string
+  name: string
+  tags: string[]
+}
+
 function getHomeBanners(limit = 5) {
   return request<HomeBanner[]>('/api/home/banners', {
     params: { limit },
   })
 }
 
-function getRecommendedPlaylists(limit = 12) {
+export function getRecommendedPlaylists(limit = 12, options: Omit<HomePlaylistOptions, 'limit'> = {}) {
   return request<HomePlaylist[]>('/api/home/recommended-playlists', {
-    params: { limit },
+    params: {
+      limit,
+      cat: options.cat,
+      offset: options.offset,
+      order: options.order,
+    },
   })
 }
 
-function getHotArtists(limit = 10) {
+export function getHotArtists(limit = 10, options: Omit<HomeArtistOptions, 'limit'> = {}) {
   return request<HomeArtist[]>('/api/home/hot-artists', {
-    params: { limit },
+    params: {
+      limit,
+      area: options.area,
+      initial: options.initial,
+      offset: options.offset,
+      type: options.type,
+    },
   })
 }
 
-function getHotSongs(limit = 10) {
+export function getHotSongs(limit = 10, options: Omit<HomeSongOptions, 'limit'> = {}) {
   return request<HomeSong[]>('/api/home/hot-songs', {
-    params: { limit },
+    params: {
+      limit,
+      offset: options.offset,
+      source: options.source,
+      type: options.type,
+    },
   })
+}
+
+export function getPlaylistCategories() {
+  return request<PlaylistCategoryGroup[]>('/api/home/playlist-categories')
 }
 
 // Home page components only depend on one method.
