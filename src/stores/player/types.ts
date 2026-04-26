@@ -34,10 +34,13 @@ export interface RecentPlayerTrack extends PlayerTrack {
   playCount: number
 }
 
+export type PlayerPlayMode = 'single-loop' | 'sequential' | 'list-loop' | 'shuffle'
+
 export interface PersistedPlayerState {
   currentIndex: number
   currentTimeSeconds: number
   isMuted: boolean
+  playMode: PlayerPlayMode
   queue: PlayerTrack[]
   volume: number
 }

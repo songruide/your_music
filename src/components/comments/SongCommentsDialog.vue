@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
 .song-comments-dialog {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 90;
   display: grid;
   place-items: center;
   padding: 22px;

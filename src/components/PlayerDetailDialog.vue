@@ -2,19 +2,24 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
+  ArrowRight,
   ChevronDown,
   Disc3,
-  ListMusic,
+  ListRestart,
+  MessageSquareText,
   Pause,
   Play,
-  Repeat2,
+  Repeat1,
   SkipBack,
   SkipForward,
+  Shuffle,
   Volume2,
   VolumeX,
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import type { SongCommentSeed } from '@/api/comment'
 import { getSongLyrics } from '@/api/player'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { usePlayerStore } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
 import { mergeLyrics, type ParsedLyricLine } from '@/utils/lyrics'
@@ -28,7 +33,6 @@ const ACTIVE_LYRIC_LEAD_SECONDS = 0.38
 const router = useRouter()
 const playerStore = usePlayerStore()
 const {
-  currentIndex,
   currentTime,
   currentTimeSeconds,
   currentTrack,
@@ -40,8 +44,9 @@ const {
   isLoading,
   isMuted,
   isPlaying,
+  playMode,
+  playModeLabel,
   progressPercent,
-  queue,
   volumePercent,
 } = storeToRefs(playerStore)
 
@@ -49,6 +54,7 @@ const lyricLines = ref<ParsedLyricLine[]>([])
 const lyricsLoading = ref(false)
 const lyricsError = ref('')
 const activeLineElement = ref<HTMLElement | null>(null)
+const commentsVisible = ref(false)
 
 let requestToken = 0
 let previousBodyOverflow = ''
@@ -57,14 +63,25 @@ const displayCover = computed(() => currentTrack.value?.coverUrl || FALLBACK_COV
 const displayAlbum = computed(() => currentTrack.value?.album?.trim() || '单曲收藏')
 const currentArtists = computed(() => getPlayerTrackArtists(currentTrack.value))
 const displayArtist = computed(() => currentArtists.value.map((artist) => artist.name).join(' / ') || '未知歌手')
-const queueCaption = computed(() => {
-  if (queue.value.length <= 1 || currentIndex.value < 0) {
-    return '当前播放'
+const panelLabel = computed(() => (currentTrack.value ? `${currentTrack.value.title} 播放详情` : '播放详情'))
+const playModeButtonLabel = computed(() => `播放模式：${playModeLabel.value}，点击切换`)
+const commentButtonLabel = computed(() => (currentTrack.value ? `查看 ${currentTrack.value.title} 的评论` : '查看歌曲评论'))
+const commentSong = computed<SongCommentSeed | null>(() => {
+  const track = currentTrack.value
+
+  if (!track) {
+    return null
   }
 
-  return `${currentIndex.value + 1}/${queue.value.length}`
+  return {
+    id: track.id,
+    title: track.title,
+    artistNames: currentArtists.value.map((artist) => artist.name),
+    albumName: track.album,
+    coverUrl: track.coverUrl || FALLBACK_COVER_URL,
+    duration: track.durationMs,
+  }
 })
-const panelLabel = computed(() => (currentTrack.value ? `${currentTrack.value.title} 播放详情` : '播放详情'))
 const detailBackdropStyle = computed(() =>
   currentTrack.value?.coverUrl
     ? {
@@ -160,7 +177,19 @@ function seekToLyricLine(seconds: number) {
   playerStore.seekToSeconds(seconds)
 }
 
+function handleShowCurrentComments() {
+  if (!currentTrack.value) {
+    return
+  }
+
+  commentsVisible.value = true
+}
+
 function handleKeydown(event: KeyboardEvent) {
+  if (commentsVisible.value) {
+    return
+  }
+
   if (event.key === 'Escape' && isDetailVisible.value) {
     closeDialog()
   }
@@ -346,9 +375,19 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="player-detail__mini-controls">
-              <span class="player-detail__decorative-icon" aria-hidden="true">
-                <Repeat2 class="player-detail__decorative-icon-svg" :stroke-width="1.9" />
-              </span>
+              <button
+                class="player-detail__mode-button"
+                type="button"
+                :aria-label="playModeButtonLabel"
+                :title="playModeButtonLabel"
+                :class="{ 'player-detail__mode-button--active': playMode !== 'sequential' }"
+                @click="playerStore.cyclePlayMode()"
+              >
+                <Repeat1 v-if="playMode === 'single-loop'" class="player-detail__control-icon" :stroke-width="2" />
+                <ListRestart v-else-if="playMode === 'list-loop'" class="player-detail__control-icon" :stroke-width="2" />
+                <Shuffle v-else-if="playMode === 'shuffle'" class="player-detail__control-icon" :stroke-width="2" />
+                <ArrowRight v-else class="player-detail__control-icon" :stroke-width="2" />
+              </button>
               <button
                 class="player-detail__icon-button"
                 type="button"
@@ -378,16 +417,19 @@ onBeforeUnmount(() => {
               >
                 <SkipForward class="player-detail__control-icon" :stroke-width="2.1" />
               </button>
-              <span class="player-detail__decorative-icon" aria-hidden="true">
-                <ListMusic class="player-detail__decorative-icon-svg" :stroke-width="1.9" />
-              </span>
             </div>
 
             <div class="player-detail__utility-row">
-              <div class="player-detail__utility-pill">
-                <ListMusic class="player-detail__utility-icon" :stroke-width="1.9" />
-                <span>{{ queueCaption }}</span>
-              </div>
+              <button
+                class="player-detail__utility-pill player-detail__comment-pill"
+                type="button"
+                :aria-label="commentButtonLabel"
+                :title="commentButtonLabel"
+                @click="handleShowCurrentComments"
+              >
+                <MessageSquareText class="player-detail__utility-icon" :stroke-width="1.9" />
+                <span>评论</span>
+              </button>
 
               <div class="player-detail__volume-readout">
                 <VolumeX
@@ -403,10 +445,11 @@ onBeforeUnmount(() => {
             </div>
 
             <p
+              v-if="playerError || isLoading"
               class="player-detail__status"
               :class="{ 'player-detail__status--error': playerError }"
             >
-              {{ playerError || (isLoading ? '正在缓冲音源...' : '点上方箭头会像下拉一样回到当前页面') }}
+              {{ playerError || '正在缓冲音源...' }}
             </p>
           </section>
 
@@ -448,6 +491,8 @@ onBeforeUnmount(() => {
       </div>
     </Transition>
   </Teleport>
+
+  <SongCommentsDialog v-model="commentsVisible" :song="commentSong" />
 </template>
 
 <style scoped lang="scss">
@@ -834,6 +879,7 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__icon-button,
+.player-detail__mode-button,
 .player-detail__play {
   padding: 0;
   display: inline-flex;
@@ -844,11 +890,16 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.player-detail__icon-button {
+.player-detail__icon-button,
+.player-detail__mode-button {
   width: 24px;
   height: 24px;
   background: transparent;
   color: rgba(24, 27, 36, 0.72);
+}
+
+.player-detail__mode-button--active {
+  color: rgba(190, 73, 224, 0.92);
 }
 
 .player-detail__icon-button:disabled,
@@ -959,6 +1010,25 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+.player-detail__utility-pill {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.player-detail__comment-pill:hover,
+.player-detail__comment-pill:focus-visible {
+  outline: none;
+  color: rgba(24, 27, 36, 0.82);
+  transform: translateY(-1px);
 }
 
 .player-detail__utility-icon {

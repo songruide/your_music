@@ -1,5 +1,5 @@
-import { DEFAULT_VOLUME, PLAYER_STORAGE_KEY } from './constants'
-import type { PersistedPlayerState, PlayerTrack } from './types'
+import { DEFAULT_PLAY_MODE, DEFAULT_VOLUME, PLAYER_STORAGE_KEY } from './constants'
+import type { PersistedPlayerState, PlayerPlayMode, PlayerTrack } from './types'
 import { clamp, sanitizeTrackForPersistence } from './utils'
 
 function canUseStorage() {
@@ -20,6 +20,10 @@ function isPlayerTrack(value: unknown): value is PlayerTrack {
     typeof track.coverUrl === 'string' &&
     typeof track.duration === 'string'
   )
+}
+
+function isPlayerPlayMode(value: unknown): value is PlayerPlayMode {
+  return value === 'single-loop' || value === 'sequential' || value === 'list-loop' || value === 'shuffle'
 }
 
 export function readPersistedPlayerState(): PersistedPlayerState | null {
@@ -44,6 +48,7 @@ export function readPersistedPlayerState(): PersistedPlayerState | null {
       currentIndex: typeof parsed.currentIndex === 'number' ? parsed.currentIndex : -1,
       currentTimeSeconds: typeof parsed.currentTimeSeconds === 'number' ? Math.max(parsed.currentTimeSeconds, 0) : 0,
       isMuted: Boolean(parsed.isMuted),
+      playMode: isPlayerPlayMode(parsed.playMode) ? parsed.playMode : DEFAULT_PLAY_MODE,
       queue,
       volume,
     }

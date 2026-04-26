@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
 
 .hero__card {
   position: relative;
-  min-height: 214px;
+  min-height: 248px;
   padding: 0;
   overflow: hidden;
   border: 0;
@@ -238,6 +238,7 @@ onBeforeUnmount(() => {
 .hero__image {
   position: absolute;
   inset: 0;
+  object-position: center center;
 }
 
 .hero__scrim {
@@ -350,7 +351,7 @@ onBeforeUnmount(() => {
 
   .hero__card,
   .hero__card--featured {
-    min-height: 196px;
+    min-height: 220px;
   }
 
   .hero__card--featured .hero__title {

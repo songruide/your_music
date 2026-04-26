@@ -10,13 +10,15 @@ import {
   restoreAudioSeek,
 } from './player/audio'
 import {
+  DEFAULT_PLAY_MODE,
   DEFAULT_VOLUME,
   INTERACTIVE_PERSIST_INTERVAL_MS,
   LOCKED_PLAYBACK_RATE,
+  PLAY_MODE_SEQUENCE,
   PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS,
 } from './player/constants'
 import { readPersistedPlayerState, writePersistedPlayerState } from './player/persistence'
-import type { AudioDiagnostics, PersistedPlayerState, PlayerTrack } from './player/types'
+import type { AudioDiagnostics, PersistedPlayerState, PlayerPlayMode, PlayerTrack } from './player/types'
 import {
   clamp,
   cloneTrack,
@@ -41,6 +43,7 @@ export const usePlayerStore = defineStore('player', () => {
   const volume = ref(DEFAULT_VOLUME)
   const queue = ref<PlayerTrack[]>([])
   const currentIndex = ref(-1)
+  const playMode = ref<PlayerPlayMode>(DEFAULT_PLAY_MODE)
 
   const audio = typeof window !== 'undefined' ? new Audio() : null
   const audioDiagnostics = ref<AudioDiagnostics>(createAudioDiagnostics(audio))
@@ -76,10 +79,45 @@ export const usePlayerStore = defineStore('player', () => {
     return clamp((currentTimeSeconds.value / totalSeconds) * 100, 0, 100)
   })
   const volumePercent = computed(() => Math.round((isMuted.value ? 0 : volume.value) * 100))
-  const hasPrevious = computed(
-    () => Boolean(currentTrack.value) && (currentIndex.value > 0 || currentTimeSeconds.value > 0),
-  )
-  const hasNext = computed(() => currentIndex.value >= 0 && currentIndex.value < queue.value.length - 1)
+  const playModeLabel = computed(() => {
+    switch (playMode.value) {
+      case 'single-loop':
+        return '单曲循环'
+      case 'list-loop':
+        return '列表循环'
+      case 'shuffle':
+        return '随机播放'
+      case 'sequential':
+      default:
+        return '顺序播放'
+    }
+  })
+  const hasPrevious = computed(() => {
+    if (!currentTrack.value) {
+      return false
+    }
+
+    if (currentTimeSeconds.value > 0 || currentIndex.value > 0) {
+      return true
+    }
+
+    return (playMode.value === 'list-loop' || playMode.value === 'shuffle') && queue.value.length > 1
+  })
+  const hasNext = computed(() => {
+    if (!currentTrack.value || currentIndex.value < 0 || queue.value.length === 0) {
+      return false
+    }
+
+    if (playMode.value === 'list-loop') {
+      return queue.value.length > 1 || currentIndex.value < queue.value.length - 1
+    }
+
+    if (playMode.value === 'shuffle') {
+      return queue.value.length > 1
+    }
+
+    return currentIndex.value < queue.value.length - 1
+  })
   const debugSnapshot = computed(() => ({
     audioCurrentSrc: audioDiagnostics.value.currentSrc,
     bitrate: currentTrack.value?.sourceMeta?.bitrate,
@@ -140,6 +178,7 @@ export const usePlayerStore = defineStore('player', () => {
       currentIndex: currentIndex.value,
       currentTimeSeconds: currentTimeSeconds.value,
       isMuted: isMuted.value,
+      playMode: playMode.value,
       queue: queue.value,
       volume: volume.value,
     }
@@ -288,7 +327,7 @@ export const usePlayerStore = defineStore('player', () => {
       isPlaying.value = false
       syncAudioDiagnostics()
       persistState(true)
-      void playNextTrack()
+      void playNextTrack({ automatic: true })
     })
 
     audio.addEventListener('error', () => {
@@ -312,6 +351,64 @@ export const usePlayerStore = defineStore('player', () => {
     }
 
     currentIndex.value = clamp(startIndex, 0, queue.value.length - 1)
+  }
+
+  function getRandomQueueIndex() {
+    if (queue.value.length <= 1) {
+      return currentIndex.value >= 0 ? currentIndex.value : 0
+    }
+
+    let nextIndex = currentIndex.value
+
+    while (nextIndex === currentIndex.value) {
+      nextIndex = Math.floor(Math.random() * queue.value.length)
+    }
+
+    return nextIndex
+  }
+
+  function getNextQueueIndex(automatic = false) {
+    if (currentIndex.value < 0 || queue.value.length === 0) {
+      return -1
+    }
+
+    if (playMode.value === 'single-loop' && automatic) {
+      return currentIndex.value
+    }
+
+    if (playMode.value === 'shuffle') {
+      return getRandomQueueIndex()
+    }
+
+    if (currentIndex.value < queue.value.length - 1) {
+      return currentIndex.value + 1
+    }
+
+    if (playMode.value === 'list-loop') {
+      return 0
+    }
+
+    return -1
+  }
+
+  function getPreviousQueueIndex() {
+    if (currentIndex.value < 0 || queue.value.length === 0) {
+      return -1
+    }
+
+    if (playMode.value === 'shuffle') {
+      return getRandomQueueIndex()
+    }
+
+    if (currentIndex.value > 0) {
+      return currentIndex.value - 1
+    }
+
+    if (playMode.value === 'list-loop' && queue.value.length > 1) {
+      return queue.value.length - 1
+    }
+
+    return -1
   }
 
   function seekToSeconds(nextSeconds: number) {
@@ -537,16 +634,25 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
-    if (currentTimeSeconds.value > PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS || currentIndex.value <= 0) {
+    if (currentTimeSeconds.value > PREVIOUS_TRACK_RESTART_THRESHOLD_SECONDS) {
       seekToSeconds(0)
       return
     }
 
-    await playTrackAtIndex(currentIndex.value - 1)
+    const previousIndex = getPreviousQueueIndex()
+
+    if (previousIndex < 0) {
+      seekToSeconds(0)
+      return
+    }
+
+    await playTrackAtIndex(previousIndex)
   }
 
-  async function playNextTrack() {
-    if (!hasNext.value) {
+  async function playNextTrack(options: { automatic?: boolean } = {}) {
+    const nextIndex = getNextQueueIndex(Boolean(options.automatic))
+
+    if (nextIndex < 0) {
       if (audio) {
         audio.pause()
       }
@@ -555,7 +661,23 @@ export const usePlayerStore = defineStore('player', () => {
       return
     }
 
-    await playTrackAtIndex(currentIndex.value + 1)
+    if (nextIndex === currentIndex.value) {
+      seekToSeconds(0)
+    }
+
+    await playTrackAtIndex(nextIndex)
+  }
+
+  function setPlayMode(nextMode: PlayerPlayMode) {
+    playMode.value = nextMode
+    persistState(true)
+  }
+
+  function cyclePlayMode() {
+    const currentModeIndex = PLAY_MODE_SEQUENCE.indexOf(playMode.value)
+    const nextModeIndex = currentModeIndex >= 0 ? currentModeIndex + 1 : 0
+
+    setPlayMode(PLAY_MODE_SEQUENCE[nextModeIndex % PLAY_MODE_SEQUENCE.length])
   }
 
   function seekToPercent(nextPercent: number) {
@@ -642,6 +764,7 @@ export const usePlayerStore = defineStore('player', () => {
     volume.value = persistedState.volume
     lastVolumeBeforeMute = persistedState.volume > 0 ? persistedState.volume : DEFAULT_VOLUME
     isMuted.value = persistedState.isMuted
+    playMode.value = persistedState.playMode
     queue.value = persistedState.queue.map(cloneTrack)
     hydrateSourceCache(queue.value)
 
@@ -673,6 +796,7 @@ export const usePlayerStore = defineStore('player', () => {
     debugSnapshot,
     durationLabel,
     error,
+    cyclePlayMode,
     closeDetail,
     hasNext,
     hasPrevious,
@@ -682,6 +806,8 @@ export const usePlayerStore = defineStore('player', () => {
     isPlaying,
     openDetail,
     enqueueNextTrack,
+    playMode,
+    playModeLabel,
     playNextTrack,
     playPreviousTrack,
     playQueue,
@@ -692,6 +818,7 @@ export const usePlayerStore = defineStore('player', () => {
     seekToPercent,
     seekToSeconds,
     setQueue,
+    setPlayMode,
     setVolume,
     toggleDebug,
     toggleDetail,

@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Download, Heart, ListMusic, MessageSquareText, Volume2, VolumeX } from 'lucide-vue-next'
+import {
+  ArrowRight,
+  Download,
+  Heart,
+  ListMusic,
+  ListRestart,
+  MessageSquareText,
+  Repeat1,
+  Shuffle,
+  Volume2,
+  VolumeX,
+} from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
@@ -29,11 +40,14 @@ const {
   isLoading,
   isMuted,
   isPlaying,
+  playMode,
+  playModeLabel,
   progressPercent,
   queue,
   volumePercent,
 } = storeToRefs(playerStore)
 
+const playModeButtonLabel = computed(() => `播放模式：${playModeLabel.value}，点击切换`)
 const volumeButtonLabel = computed(() => (isMuted.value || volumePercent.value === 0 ? '取消静音' : '静音'))
 const queueButtonLabel = computed(() => (queue.value.length > 0 ? `播放队列，共 ${queue.value.length} 首` : '播放队列'))
 const queueSourceText = computed(() =>
@@ -348,6 +362,19 @@ onBeforeUnmount(() => {
 
       <div class="player__tools">
         <div class="player__mix-console" aria-label="Volume and queue controls">
+          <button
+            class="player__icon-button player__icon-button--console player__icon-button--mode"
+            type="button"
+            :aria-label="playModeButtonLabel"
+            :title="playModeButtonLabel"
+            :class="{ 'player__icon-button--active': playMode !== 'sequential' }"
+            @click="playerStore.cyclePlayMode()"
+          >
+            <Repeat1 v-if="playMode === 'single-loop'" class="player__lucide-icon" :stroke-width="1.9" />
+            <ListRestart v-else-if="playMode === 'list-loop'" class="player__lucide-icon" :stroke-width="1.9" />
+            <Shuffle v-else-if="playMode === 'shuffle'" class="player__lucide-icon" :stroke-width="1.9" />
+            <ArrowRight v-else class="player__lucide-icon" :stroke-width="1.9" />
+          </button>
           <button
             class="player__icon-button player__icon-button--console"
             :aria-label="volumeButtonLabel"
@@ -863,6 +890,10 @@ onBeforeUnmount(() => {
 
 .player__icon-button--active {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.player__icon-button--mode {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .player__range {
