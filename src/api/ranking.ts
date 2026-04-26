@@ -24,6 +24,7 @@ export interface RankingTrack {
   name: string
   artists: ArtistRef[]
   artistNames: string[]
+  albumId?: string
   albumName: string
   coverUrl: string
   duration?: number

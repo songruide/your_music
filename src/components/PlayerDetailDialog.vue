@@ -22,6 +22,7 @@ import { getSongLyrics } from '@/api/player'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { usePlayerStore } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
 import { mergeLyrics, type ParsedLyricLine } from '@/utils/lyrics'
 import { getPlayerTrackArtists } from '@/utils/playerArtists'
 import { buildSearchRoute } from '@/views/Search/utils'
@@ -142,6 +143,27 @@ async function openArtist(artist: ArtistRef) {
   }
 
   await router.push(buildSearchRoute(artistName, 'song'))
+}
+
+async function openAlbum() {
+  const track = currentTrack.value
+
+  if (!track) {
+    return
+  }
+
+  const targetRoute = await resolveAlbumRoute({
+    id: track.id,
+    albumId: track.albumId,
+    albumName: displayAlbum.value,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  closeDialog()
+  await router.push(targetRoute)
 }
 
 function setActiveLineRef(element: Element | null, index: number) {
@@ -354,7 +376,14 @@ onBeforeUnmount(() => {
                   <span v-if="index < currentArtists.length - 1" class="player-detail__artist-separator">/</span>
                 </template>
               </div>
-              <p class="player-detail__album-name">{{ displayAlbum }}</p>
+              <button
+                class="player-detail__album-name player-detail__album-name--interactive"
+                type="button"
+                :title="`打开专辑 ${displayAlbum}`"
+                @click="openAlbum"
+              >
+                {{ displayAlbum }}
+              </button>
             </div>
 
             <div class="player-detail__timeline-shell">
@@ -816,7 +845,6 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__artist-list,
-.player-detail__album-name,
 .player-detail__status {
   margin: 0;
   color: rgba(44, 49, 65, 0.58);
@@ -860,11 +888,29 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__album-name {
+  padding: 0;
+  border: 0;
+  background: transparent;
   margin-top: 4px;
   color: rgba(44, 49, 65, 0.38);
   font-size: 9px;
+  font: inherit;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.player-detail__album-name--interactive {
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.player-detail__album-name--interactive:hover,
+.player-detail__album-name--interactive:focus-visible {
+  outline: none;
+  color: rgba(34, 37, 51, 0.82);
+  transform: translateY(-1px);
 }
 
 .player-detail__timeline-shell {

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
 import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from './components/RecentTrackRow.vue'
 
@@ -155,6 +156,7 @@ function toPlayerTrack(track: RecentPlayerTrack): PlayerTrack {
     title: track.title,
     artist: track.artist,
     artists: track.artists?.map((artist) => ({ ...artist })),
+    albumId: track.albumId,
     album: track.album,
     coverUrl: track.coverUrl,
     duration: track.duration,
@@ -295,6 +297,20 @@ function handleOpenArtist(artist: ArtistRef) {
   void router.push(targetRoute)
 }
 
+async function handleOpenAlbum(track: RecentPlayerTrack) {
+  const targetRoute = await resolveAlbumRoute({
+    id: track.id,
+    albumId: track.albumId,
+    albumName: track.album,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
+}
+
 function handlePlayNext(track: RecentPlayerTrack) {
   void playerStore.enqueueNextTrack(toPlayerTrack(track))
 }
@@ -416,6 +432,7 @@ watch(
             :track="track"
             :is-current="track.id === currentTrack?.id"
             @download-track="handleDownloadTrack"
+            @open-album="handleOpenAlbum"
             @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"

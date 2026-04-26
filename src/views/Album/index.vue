@@ -6,9 +6,11 @@ import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getAlbumDetail, type AlbumDetail, type AlbumTrack } from '@/api/album'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { debounce } from '@/utils/timing'
 
@@ -16,6 +18,7 @@ const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff5faf'/%3E%3Cstop offset='1' stop-color='%2351a8ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='240' height='240' rx='42' fill='url(%23g)'/%3E%3Ccircle cx='120' cy='94' r='30' fill='rgba(255,255,255,.72)'/%3E%3Crect x='58' y='146' width='124' height='38' rx='19' fill='rgba(255,255,255,.48)'/%3E%3C/svg%3E"
 
 const route = useRoute()
+const router = useRouter()
 const playerStore = usePlayerStore()
 const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
@@ -115,10 +118,15 @@ function toPlayerTrack(song: AlbumTrack) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl,
     durationMs: song.duration,
   })
+}
+
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
 }
 
 function createPlayerQueue(tracks: AlbumTrack[]) {
@@ -217,6 +225,16 @@ function downloadSong(song: AlbumTrack) {
 
   libraryStore.addLocalTrack(toPlayerTrack(song))
   showActionHint('已添加到本地音乐')
+}
+
+function handleOpenArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
 }
 
 async function shareAlbum() {
@@ -397,14 +415,54 @@ onBeforeUnmount(() => {
                 <div class="album-table__copy">
                   <div class="album-table__title">{{ song.name }}</div>
                   <div class="album-table__sub album-table__sub--mobile">
-                    {{ song.artistNames.join(' / ') || '未知歌手' }}
+                    <template v-if="song.artists.length > 0">
+                      <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                        <button
+                          class="album-table__artist-link"
+                          type="button"
+                          :title="artist.name"
+                          :aria-label="`打开歌手 ${artist.name}`"
+                          @click.stop="handleOpenArtist(artist)"
+                        >
+                          {{ artist.name }}
+                        </button>
+                        <span
+                          v-if="artistIndex < song.artists.length - 1"
+                          class="album-table__artist-separator"
+                          aria-hidden="true"
+                        >
+                          /
+                        </span>
+                      </template>
+                    </template>
+                    <span v-else>未知歌手</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="album-table__cell album-table__cell--artist">
-              {{ song.artistNames.join(' / ') || '未知歌手' }}
+              <template v-if="song.artists.length > 0">
+                <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                  <button
+                    class="album-table__artist-link"
+                    type="button"
+                    :title="artist.name"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    @click.stop="handleOpenArtist(artist)"
+                  >
+                    {{ artist.name }}
+                  </button>
+                  <span
+                    v-if="artistIndex < song.artists.length - 1"
+                    class="album-table__artist-separator"
+                    aria-hidden="true"
+                  >
+                    /
+                  </span>
+                </template>
+              </template>
+              <span v-else>未知歌手</span>
             </div>
             <div class="album-table__cell album-table__cell--numeric">
               {{ formatDurationMs(song.duration) }}
@@ -698,6 +756,12 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.album-table__row--head .album-table__cell--numeric,
+.album-table__row--head .album-table__cell--actions {
+  justify-self: end;
+  text-align: right;
+}
+
 .album-table__body .album-table__row {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   color: rgba(246, 248, 255, 0.9);
@@ -799,6 +863,26 @@ onBeforeUnmount(() => {
 
 .album-table__sub {
   margin-top: 4px;
+}
+
+.album-table__artist-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.album-table__artist-link:hover,
+.album-table__artist-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.album-table__artist-separator {
+  color: rgba(226, 233, 255, 0.34);
 }
 
 .album-table__sub--mobile {
@@ -915,6 +999,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 34px minmax(0, 1fr) 64px 160px;
   }
 
+  .album-table__cell--actions {
+    gap: 6px;
+  }
+
   .album-table__cell--artist {
     display: none;
   }
@@ -947,6 +1035,10 @@ onBeforeUnmount(() => {
     gap: 12px;
     padding: 0 14px;
   }
+
+  .album-table__cell--actions {
+    gap: 6px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -965,6 +1057,10 @@ onBeforeUnmount(() => {
 
   .album-table__row {
     grid-template-columns: 26px minmax(0, 1fr) 144px;
+  }
+
+  .album-table__cell--actions {
+    gap: 4px;
   }
 }
 </style>

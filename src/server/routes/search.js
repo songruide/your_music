@@ -23,6 +23,7 @@ router.get('/api/search/songs', createRouteHandler(async (req, res) => {
     coverUrl: item.album?.picUrl ?? item.al?.picUrl ?? '',
     artists: getArtists(item.artists ?? item.ar),
     artistNames: getArtistNames(item.artists ?? item.ar),
+    albumId: String(item.album?.id ?? item.al?.id ?? '').trim() || undefined,
     albumName: item.album?.name ?? item.al?.name ?? '未知专辑',
     duration: item.duration ?? item.dt,
     playable: true,

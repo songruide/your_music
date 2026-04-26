@@ -4,8 +4,9 @@ import type { SearchSong } from '@/api/search'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
-import { formatArtistNames, handleSearchCoverError } from '../utils'
+import { handleSearchCoverError } from '../utils'
 
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
@@ -20,6 +21,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
+  (event: 'open-album', song: Pick<SearchSong, 'id' | 'albumId' | 'albumName'>): void
+  (event: 'open-artist', artist: ArtistRef): void
   (event: 'select-track', song: SearchSong): void
   (event: 'show-comments', song: SearchSong): void
 }>()
@@ -38,6 +41,7 @@ function buildFavoriteTrack(song: SearchSong) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl,
     durationMs: song.duration,
@@ -62,6 +66,10 @@ function handleDownloadSong(song: SearchSong) {
   }
 
   libraryStore.addLocalTrack(buildFavoriteTrack(song))
+}
+
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
 }
 </script>
 
@@ -116,16 +124,66 @@ function handleDownloadSong(song: SearchSong) {
             <div class="search-table__copy">
               <div class="search-table__title">{{ song.name }}</div>
               <div class="search-table__sub search-table__sub--mobile">
-                {{ formatArtistNames(song.artistNames) }}
+                <template v-if="song.artists.length > 0">
+                  <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                    <button
+                      class="search-table__artist-link"
+                      type="button"
+                      :title="artist.name"
+                      :aria-label="`打开歌手 ${artist.name}`"
+                      @click.stop="emit('open-artist', artist)"
+                    >
+                      {{ artist.name }}
+                    </button>
+                    <span
+                      v-if="artistIndex < song.artists.length - 1"
+                      class="search-table__artist-separator"
+                      aria-hidden="true"
+                    >
+                      /
+                    </span>
+                  </template>
+                </template>
+                <span v-else>未知歌手</span>
               </div>
             </div>
           </div>
         </div>
 
         <div class="search-table__cell search-table__cell--artist">
-          {{ formatArtistNames(song.artistNames) }}
+          <template v-if="song.artists.length > 0">
+            <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+              <button
+                class="search-table__artist-link"
+                type="button"
+                :title="artist.name"
+                :aria-label="`打开歌手 ${artist.name}`"
+                @click.stop="emit('open-artist', artist)"
+              >
+                {{ artist.name }}
+              </button>
+              <span
+                v-if="artistIndex < song.artists.length - 1"
+                class="search-table__artist-separator"
+                aria-hidden="true"
+              >
+                /
+              </span>
+            </template>
+          </template>
+          <span v-else>未知歌手</span>
         </div>
-        <div class="search-table__cell search-table__cell--album">{{ song.albumName }}</div>
+        <div class="search-table__cell search-table__cell--album">
+          <button
+            class="search-table__album-link"
+            type="button"
+            :title="song.albumName"
+            :aria-label="`打开专辑 ${song.albumName}`"
+            @click.stop="emit('open-album', song)"
+          >
+            {{ song.albumName }}
+          </button>
+        </div>
         <div class="search-table__cell search-table__cell--numeric">
           {{ formatDurationMs(song.duration) }}
         </div>
@@ -181,6 +239,12 @@ function handleDownloadSong(song: SearchSong) {
     rgba(18, 16, 50, 0.86);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(18px);
+}
+
+.search-table__row--head .search-table__cell--numeric,
+.search-table__row--head .search-table__cell--actions {
+  justify-self: end;
+  text-align: right;
 }
 
 .search-table__body .search-table__row {
@@ -276,14 +340,58 @@ function handleDownloadSong(song: SearchSong) {
 .search-table__cell--artist,
 .search-table__cell--album {
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: rgba(226, 233, 255, 0.56);
   font-size: 12px;
 }
 
 .search-table__sub {
   margin-top: 4px;
+}
+
+.search-table__cell--artist,
+.search-table__sub--mobile {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  white-space: normal;
+}
+
+.search-table__artist-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.search-table__artist-link:hover,
+.search-table__artist-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.search-table__album-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.search-table__album-link:hover,
+.search-table__album-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.search-table__artist-separator {
+  color: rgba(226, 233, 255, 0.34);
 }
 
 .search-table__sub--mobile {
@@ -373,6 +481,10 @@ function handleDownloadSong(song: SearchSong) {
 @media (max-width: 960px) {
   .search-table__row {
     grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 1fr) 64px 160px;
+  }
+
+  .search-table__cell--actions {
+    gap: 6px;
   }
 
   .search-table__cell--album {

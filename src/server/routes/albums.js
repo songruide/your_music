@@ -25,6 +25,7 @@ router.get('/api/albums/detail', createRouteHandler(async (req, res) => {
       name: item.name ?? '',
       artists: getArtists(item.ar ?? item.artists ?? album.artists),
       artistNames: getArtistNames(item.ar ?? item.artists ?? album.artists),
+      albumId: String(item.al?.id ?? item.album?.id ?? album.id ?? id).trim() || undefined,
       albumName: item.al?.name ?? item.album?.name ?? album.name ?? '未知专辑',
       coverUrl: item.al?.picUrl ?? item.album?.picUrl ?? album.picUrl ?? album.blurPicUrl ?? '',
       duration: item.dt ?? item.duration,

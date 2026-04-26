@@ -32,6 +32,8 @@ const {
   isPlaying,
   loading,
   mvItems,
+  openAlbum,
+  openArtist,
   playAll,
   playlistItems,
   searchKeyword,
@@ -115,6 +117,8 @@ function handleSongComments(song: SearchSong) {
             :is-playing="isPlaying"
             :songs="songItems"
             :start-index="startIndex"
+            @open-album="openAlbum"
+            @open-artist="openArtist"
             @select-track="handleTrackSelect"
             @show-comments="handleSongComments"
           />

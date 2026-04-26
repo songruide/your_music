@@ -14,6 +14,7 @@ import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
 import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
@@ -102,6 +103,7 @@ function toPlayerTrack(song: RankingTrack) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl || activeRanking.value?.coverUrl || FALLBACK_COVER_URL,
     durationMs: song.duration,
@@ -186,6 +188,20 @@ function handleOpenArtist(artist: ArtistRef) {
   }
 
   void router.push(targetRoute)
+}
+
+async function handleOpenAlbum(song: Pick<RankingTrack, 'id' | 'albumId' | 'albumName'>) {
+  const targetRoute = await resolveAlbumRoute({
+    id: song.id,
+    albumId: song.albumId,
+    albumName: song.albumName,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
 }
 
 async function loadRankings() {
@@ -411,7 +427,20 @@ onMounted(() => {
                   <div class="ranking-table__copy">
                     <div class="ranking-table__title">{{ song.name }}</div>
                     <div class="ranking-table__mobile-artists">
-                      {{ song.artistNames.join(' / ') || '未知歌手' }}
+                      <template v-if="song.artists.length">
+                        <template v-for="(artist, artistIndex) in song.artists" :key="`${artist.id || artist.name}-${artistIndex}`">
+                          <button
+                            class="ranking-table__artist-link"
+                            type="button"
+                            :title="artist.id ? `打开歌手 ${artist.name}` : `搜索歌手 ${artist.name}`"
+                            @click.stop="handleOpenArtist(artist)"
+                          >
+                            {{ artist.name }}
+                          </button>
+                          <span v-if="artistIndex < song.artists.length - 1" class="ranking-table__artist-separator"> / </span>
+                        </template>
+                      </template>
+                      <span v-else>未知歌手</span>
                     </div>
                   </div>
                 </div>
@@ -434,7 +463,17 @@ onMounted(() => {
                 <span v-else>未知歌手</span>
               </div>
 
-              <div class="ranking-table__cell ranking-table__cell--album">{{ song.albumName }}</div>
+              <div class="ranking-table__cell ranking-table__cell--album">
+                <button
+                  class="ranking-table__album-link"
+                  type="button"
+                  :title="song.albumName"
+                  :aria-label="`打开专辑 ${song.albumName}`"
+                  @click.stop="handleOpenAlbum(song)"
+                >
+                  {{ song.albumName }}
+                </button>
+              </div>
               <div class="ranking-table__cell ranking-table__cell--time">{{ formatDurationMs(song.duration) }}</div>
               <div class="ranking-table__cell ranking-table__cell--actions">
                 <SongRowActions
@@ -794,6 +833,12 @@ onMounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.ranking-table__row--head .ranking-table__cell--time,
+.ranking-table__row--head .ranking-table__cell--actions {
+  justify-self: end;
+  text-align: right;
+}
+
 .ranking-table__body {
   max-height: 820px;
   overflow: auto;
@@ -909,6 +954,23 @@ onMounted(() => {
 
 .ranking-table__artist-link:hover,
 .ranking-table__artist-link:focus-visible {
+  color: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.ranking-table__album-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.ranking-table__album-link:hover,
+.ranking-table__album-link:focus-visible {
   color: rgba(255, 255, 255, 0.92);
   outline: none;
 }

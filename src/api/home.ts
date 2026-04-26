@@ -35,6 +35,7 @@ export interface HomeSong {
   coverUrl: string
   artists: ArtistRef[]
   artistNames: string[]
+  albumId?: string
   albumName?: string
   duration?: number
   playable?: boolean

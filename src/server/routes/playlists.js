@@ -29,6 +29,7 @@ router.get('/api/playlists/detail', createRouteHandler(async (req, res) => {
     coverUrl: item.al?.picUrl ?? item.album?.picUrl ?? playlist.coverImgUrl ?? '',
     artists: getArtists(item.ar ?? item.artists),
     artistNames: getArtistNames(item.ar ?? item.artists),
+    albumId: String(item.al?.id ?? item.album?.id ?? '').trim() || undefined,
     albumName: item.al?.name ?? item.album?.name ?? '未知专辑',
     duration: item.dt ?? item.duration,
     playable: item.privilege?.st !== -200 && item.noCopyrightR !== 1,

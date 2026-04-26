@@ -9,6 +9,8 @@ import {
   type SearchSong,
 } from '@/api/search'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
 import { buildPlayerTrack } from '@/utils/playerTrack'
 import { getPageSize, getSearchTypeLabel } from './constants'
 import type { SearchResultState } from './types'
@@ -160,6 +162,7 @@ export function useSearchPage() {
       title: song.name,
       artists: song.artists,
       artistNames: song.artistNames,
+      albumId: song.albumId,
       albumName: song.albumName,
       coverUrl: song.coverUrl,
       durationMs: song.duration,
@@ -199,6 +202,38 @@ export function useSearchPage() {
     void playerStore.playQueue(queue, 0)
   }
 
+  async function openArtist(artist: ArtistRef) {
+    const artistName = String(artist.name ?? '').trim()
+
+    if (!artistName) {
+      return
+    }
+
+    if (artist.id) {
+      await router.push({
+        name: 'artist-detail',
+        params: { id: artist.id },
+      })
+      return
+    }
+
+    await router.push(buildSearchRoute(artistName, 'song'))
+  }
+
+  async function openAlbum(song: Pick<SearchSong, 'id' | 'albumId' | 'albumName'>) {
+    const targetRoute = await resolveAlbumRoute({
+      id: song.id,
+      albumId: song.albumId,
+      albumName: song.albumName,
+    })
+
+    if (!targetRoute) {
+      return
+    }
+
+    await router.push(targetRoute)
+  }
+
   watch(
     () => [getRouteKeyword(route.query), getRouteSearchType(route.query), getRoutePage(route.query)],
     ([keyword, type, page]) => {
@@ -233,6 +268,8 @@ export function useSearchPage() {
     isPlaying,
     loading,
     mvItems,
+    openAlbum,
+    openArtist,
     playAll,
     playlistItems,
     searchKeyword,

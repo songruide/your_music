@@ -50,6 +50,10 @@ function pickAlbum(song) {
   return String(song?.al?.name ?? song?.album?.name ?? '').trim()
 }
 
+function pickAlbumId(song) {
+  return String(song?.al?.id ?? song?.album?.id ?? '').trim()
+}
+
 function pickCoverUrl(song) {
   return String(song?.al?.picUrl ?? song?.album?.picUrl ?? '').trim()
 }
@@ -97,6 +101,7 @@ function normalizeRecentSongEntry(entry, index) {
     title,
     artists: pickArtists(song),
     artist: pickArtistName(song) || '未知歌手',
+    albumId: pickAlbumId(song) || undefined,
     album: pickAlbum(song) || '单曲收藏',
     coverUrl: pickCoverUrl(song),
     duration: formatDuration(durationMs),

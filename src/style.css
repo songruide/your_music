@@ -162,6 +162,30 @@ img {
   transform: translateY(0);
 }
 
+@media (max-width: 960px) {
+  .song-actions {
+    gap: 4px;
+  }
+
+  .song-action {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 560px) {
+  .song-action {
+    width: 24px;
+    height: 24px;
+  }
+
+  .song-action svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
 @media (hover: none) {
   .song-action--on-hover {
     opacity: 1;

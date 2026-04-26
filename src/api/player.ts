@@ -1,5 +1,6 @@
 import { request } from '@/utils/request'
 import type { RecentPlayerTrack } from '@/stores/player/types'
+import type { ArtistRef } from '@/types/music'
 
 export interface SongPlaybackSource {
   id: string
@@ -24,6 +25,16 @@ export interface SongLyricPayload {
   uncollected?: boolean
 }
 
+export interface SongMetaPayload {
+  id: string
+  name: string
+  artists: ArtistRef[]
+  artistNames: string[]
+  albumId?: string
+  albumName?: string
+  coverUrl?: string
+}
+
 export function getSongPlaybackSource(id: string, level = 'standard') {
   return request<SongPlaybackSource>('/api/player/song-url', {
     params: {
@@ -35,6 +46,14 @@ export function getSongPlaybackSource(id: string, level = 'standard') {
 
 export function getSongLyrics(id: string) {
   return request<SongLyricPayload>('/api/player/lyrics', {
+    params: {
+      id,
+    },
+  })
+}
+
+export function getSongMeta(id: string) {
+  return request<SongMetaPayload>('/api/player/song-meta', {
     params: {
       id,
     },

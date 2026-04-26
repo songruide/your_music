@@ -40,7 +40,29 @@
             />
             <div class="song-item__body">
               <div class="song-item__name">{{ item.name }}</div>
-              <div class="song-item__artists">{{ item.artistNames.join(' / ') }}</div>
+              <div class="song-item__artists">
+                <template v-if="item.artists.length > 0">
+                  <template v-for="(artist, artistIndex) in item.artists" :key="resolveArtistKey(artist, artistIndex)">
+                    <button
+                      class="song-item__artist-link"
+                      type="button"
+                      :title="artist.name"
+                      :aria-label="`打开歌手 ${artist.name}`"
+                      @click.stop="openArtist(artist)"
+                    >
+                      {{ artist.name }}
+                    </button>
+                    <span
+                      v-if="artistIndex < item.artists.length - 1"
+                      class="song-item__artist-separator"
+                      aria-hidden="true"
+                    >
+                      /
+                    </span>
+                  </template>
+                </template>
+                <span v-else>未知歌手</span>
+              </div>
             </div>
             <div class="song-item__duration">{{ formatDurationMs(item.duration) }}</div>
             <div class="song-item__actions">
@@ -66,6 +88,8 @@ import { storeToRefs } from 'pinia'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
 const router = useRouter()
@@ -139,11 +163,26 @@ function mapSongToPlayerTrack(song: HomeSong) {
       title: song.name,
       artists: song.artists,
       artistNames: song.artistNames,
+      albumId: song.albumId,
       albumName: song.albumName,
       coverUrl: song.coverUrl,
       durationMs: song.duration,
     }),
   }
+}
+
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
+}
+
+function openArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
 }
 
 function openDiscoverPage() {
@@ -247,6 +286,27 @@ function openDiscoverPage() {
   margin-top: 5px;
   color: rgba(213, 221, 255, 0.56);
   font-size: 12px;
+}
+
+.song-item__artist-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.song-item__artist-link:hover,
+.song-item__artist-link:focus-visible {
+  outline: none;
+  color: rgba(252, 249, 255, 0.9);
+}
+
+.song-item__artist-separator {
+  color: rgba(213, 221, 255, 0.34);
 }
 
 .song-item__duration {

@@ -21,6 +21,7 @@ function mapArtistSong(item, fallbackArtistName) {
     name: item.name ?? '',
     artists: getArtists(item.ar ?? item.artists ?? fallbackArtistName),
     artistNames: getArtistNames(item.ar ?? item.artists ?? fallbackArtistName),
+    albumId: String(item.al?.id ?? item.album?.id ?? '').trim() || undefined,
     albumName: item.al?.name ?? item.album?.name ?? '未知专辑',
     coverUrl: item.al?.picUrl ?? item.album?.picUrl ?? '',
     duration: item.dt ?? item.duration,

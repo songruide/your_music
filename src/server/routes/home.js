@@ -39,6 +39,7 @@ function mapHomeSong(item) {
     coverUrl: item.picUrl ?? item.song?.album?.picUrl ?? item.song?.al?.picUrl ?? item.album?.picUrl ?? item.al?.picUrl ?? '',
     artists: getArtists(item.song?.artists ?? item.song?.ar ?? item.artists ?? item.ar),
     artistNames: getArtistNames(item.song?.artists ?? item.song?.ar ?? item.artists ?? item.ar),
+    albumId: String(item.song?.album?.id ?? item.song?.al?.id ?? item.album?.id ?? item.al?.id ?? '').trim() || undefined,
     albumName: item.song?.album?.name ?? item.song?.al?.name ?? item.album?.name ?? item.al?.name ?? '单曲精选',
     duration: item.song?.duration ?? item.song?.dt ?? item.duration ?? item.dt,
     playable: item.privilege?.st !== -200 && item.noCopyrightR !== 1,

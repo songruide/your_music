@@ -16,6 +16,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'download-track', track: RecentPlayerTrack): void
+  (event: 'open-album', track: RecentPlayerTrack): void
   (event: 'open-artist', artist: ArtistRef): void
   (event: 'play-next', track: RecentPlayerTrack): void
   (event: 'remove-track', trackId: string): void
@@ -94,7 +95,16 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
       </template>
       <span v-else>未知歌手</span>
     </div>
-    <div class="history-row__album" :title="track.album || '单曲收藏'">{{ track.album || '单曲收藏' }}</div>
+    <div class="history-row__album" :title="track.album || '单曲收藏'">
+      <button
+        class="history-row__album-link"
+        type="button"
+        :title="track.album || '单曲收藏'"
+        @click.stop="emit('open-album', track)"
+      >
+        {{ track.album || '单曲收藏' }}
+      </button>
+    </div>
 
     <div class="history-row__duration" :title="formatPlayCount(track.playCount)">{{ track.duration }}</div>
 
@@ -311,6 +321,23 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
   outline: none;
 }
 
+.history-row__album-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.history-row__album-link:hover,
+.history-row__album-link:focus-visible {
+  color: rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+
 .history-row__artist-separator {
   color: rgba(228, 235, 255, 0.34);
 }
@@ -371,6 +398,15 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
 @media (max-width: 960px) {
   .history-row {
     grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
+  }
+
+  .history-row__actions {
+    gap: 4px;
+  }
+
+  .history-row__icon {
+    width: 26px;
+    height: 26px;
   }
 
   .history-row__album {

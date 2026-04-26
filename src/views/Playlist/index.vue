@@ -5,10 +5,13 @@ import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { getPlaylistDetail, type PlaylistDetail, type PlaylistTrack } from '@/api/playlist'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { debounce } from '@/utils/timing'
 
@@ -16,6 +19,7 @@ const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff5faf'/%3E%3Cstop offset='1' stop-color='%2351a8ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='240' height='240' rx='42' fill='url(%23g)'/%3E%3Ccircle cx='120' cy='94' r='30' fill='rgba(255,255,255,.72)'/%3E%3Crect x='58' y='146' width='124' height='38' rx='19' fill='rgba(255,255,255,.48)'/%3E%3C/svg%3E"
 
 const route = useRoute()
+const router = useRouter()
 const playerStore = usePlayerStore()
 const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
@@ -123,10 +127,39 @@ function toPlayerTrack(song: PlaylistTrack) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl,
     durationMs: song.duration,
   })
+}
+
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
+}
+
+function handleOpenArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
+}
+
+async function handleOpenAlbum(song: Pick<PlaylistTrack, 'id' | 'albumId' | 'albumName'>) {
+  const targetRoute = await resolveAlbumRoute({
+    id: song.id,
+    albumId: song.albumId,
+    albumName: song.albumName,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
 }
 
 function createPlayerQueue(tracks: PlaylistTrack[]) {
@@ -428,16 +461,66 @@ onBeforeUnmount(() => {
                 <div class="playlist-table__copy">
                   <div class="playlist-table__title">{{ song.name }}</div>
                   <div class="playlist-table__sub playlist-table__sub--mobile">
-                    {{ song.artistNames.join(' / ') || '未知歌手' }}
+                    <template v-if="song.artists.length > 0">
+                      <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                        <button
+                          class="playlist-table__artist-link"
+                          type="button"
+                          :title="artist.name"
+                          :aria-label="`打开歌手 ${artist.name}`"
+                          @click.stop="handleOpenArtist(artist)"
+                        >
+                          {{ artist.name }}
+                        </button>
+                        <span
+                          v-if="artistIndex < song.artists.length - 1"
+                          class="playlist-table__artist-separator"
+                          aria-hidden="true"
+                        >
+                          /
+                        </span>
+                      </template>
+                    </template>
+                    <span v-else>未知歌手</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="playlist-table__cell playlist-table__cell--artist">
-              {{ song.artistNames.join(' / ') || '未知歌手' }}
+              <template v-if="song.artists.length > 0">
+                <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                  <button
+                    class="playlist-table__artist-link"
+                    type="button"
+                    :title="artist.name"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    @click.stop="handleOpenArtist(artist)"
+                  >
+                    {{ artist.name }}
+                  </button>
+                  <span
+                    v-if="artistIndex < song.artists.length - 1"
+                    class="playlist-table__artist-separator"
+                    aria-hidden="true"
+                  >
+                    /
+                  </span>
+                </template>
+              </template>
+              <span v-else>未知歌手</span>
             </div>
-            <div class="playlist-table__cell playlist-table__cell--album">{{ song.albumName }}</div>
+            <div class="playlist-table__cell playlist-table__cell--album">
+              <button
+                class="playlist-table__album-link"
+                type="button"
+                :title="song.albumName"
+                :aria-label="`打开专辑 ${song.albumName}`"
+                @click.stop="handleOpenAlbum(song)"
+              >
+                {{ song.albumName }}
+              </button>
+            </div>
             <div class="playlist-table__cell playlist-table__cell--numeric">
               {{ formatDurationMs(song.duration) }}
             </div>
@@ -779,6 +862,12 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.playlist-table__row--head .playlist-table__cell--numeric,
+.playlist-table__row--head .playlist-table__cell--actions {
+  justify-self: end;
+  text-align: right;
+}
+
 .playlist-table__body .playlist-table__row {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   color: rgba(246, 248, 255, 0.9);
@@ -881,6 +970,29 @@ onBeforeUnmount(() => {
 
 .playlist-table__sub {
   margin-top: 4px;
+}
+
+.playlist-table__artist-link,
+.playlist-table__album-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.playlist-table__artist-link:hover,
+.playlist-table__artist-link:focus-visible,
+.playlist-table__album-link:hover,
+.playlist-table__album-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.playlist-table__artist-separator {
+  color: rgba(226, 233, 255, 0.34);
 }
 
 .playlist-table__sub--mobile {
@@ -997,6 +1109,10 @@ onBeforeUnmount(() => {
 
   .playlist-table__row {
     grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 160px;
+  }
+
+  .playlist-table__cell--actions {
+    gap: 6px;
   }
 
   .playlist-table__cell--album {

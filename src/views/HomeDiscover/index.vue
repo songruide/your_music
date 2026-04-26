@@ -16,6 +16,9 @@ import {
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
 type DiscoverSection = 'playlists' | 'artists' | 'songs'
@@ -216,6 +219,10 @@ function openArtist(id: string) {
   })
 }
 
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
+}
+
 function setPlaylistTag(tag: string) {
   if (!tag || tag === playlistTag.value) {
     return
@@ -250,10 +257,35 @@ function toPlayerTrack(song: HomeSong) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl,
     durationMs: song.duration,
   })
+}
+
+function openSongArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
+}
+
+async function openSongAlbum(song: Pick<HomeSong, 'id' | 'albumId' | 'albumName'>) {
+  const targetRoute = await resolveAlbumRoute({
+    id: song.id,
+    albumId: song.albumId,
+    albumName: song.albumName ?? '',
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
 }
 
 function createSongQueue() {
@@ -698,9 +730,41 @@ watch(
           />
           <div class="song-row__copy">
             <div class="song-row__title">{{ song.name }}</div>
-            <div class="song-row__artists">{{ song.artistNames.join(' / ') || '未知歌手' }}</div>
+            <div class="song-row__artists">
+              <template v-if="song.artists.length > 0">
+                <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                  <button
+                    class="song-row__artist-link"
+                    type="button"
+                    :title="artist.name"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    @click.stop="openSongArtist(artist)"
+                  >
+                    {{ artist.name }}
+                  </button>
+                  <span
+                    v-if="artistIndex < song.artists.length - 1"
+                    class="song-row__artist-separator"
+                    aria-hidden="true"
+                  >
+                    /
+                  </span>
+                </template>
+              </template>
+              <span v-else>未知歌手</span>
+            </div>
           </div>
-          <div class="song-row__album">{{ song.albumName || '单曲精选' }}</div>
+          <div class="song-row__album">
+            <button
+              class="song-row__album-link"
+              type="button"
+              :title="song.albumName || '单曲精选'"
+              :aria-label="`打开专辑 ${song.albumName || '单曲精选'}`"
+              @click.stop="openSongAlbum(song)"
+            >
+              {{ song.albumName || '单曲精选' }}
+            </button>
+          </div>
           <div class="song-row__duration">{{ formatDurationMs(song.duration) }}</div>
           <div class="song-row__actions">
             <SongRowActions
@@ -1190,6 +1254,30 @@ watch(
 .song-row__album {
   color: rgba(226, 233, 255, 0.52);
   font-size: 12px;
+}
+
+.song-row__artist-link,
+.song-row__album-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.song-row__artist-link:hover,
+.song-row__artist-link:focus-visible,
+.song-row__album-link:hover,
+.song-row__album-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.song-row__artist-separator {
+  color: rgba(226, 233, 255, 0.34);
 }
 
 .song-row__duration {

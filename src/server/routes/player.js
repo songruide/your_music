@@ -4,6 +4,7 @@ import { pipeUpstreamStream } from '../services/media.js'
 import { fetchNcm } from '../services/ncm.js'
 import { buildSongStreamUrl, resolveSongSource } from '../services/player.js'
 import { fetchRecentSongTracks } from '../services/recent.js'
+import { getArtists, getArtistNames } from '../services/shared.js'
 import { readAuthCookie } from '../utils/auth-cookie.js'
 import {
   createRouteHandler,
@@ -50,6 +51,26 @@ router.get('/api/player/lyrics', createRouteHandler(async (req, res) => {
     translatedLyric: payload?.tlyric?.lyric ?? '',
     noLyric: Boolean(payload?.nolyric),
     uncollected: Boolean(payload?.uncollected),
+  })
+}))
+
+router.get('/api/player/song-meta', createRouteHandler(async (req, res) => {
+  const id = getRequiredQueryString(req, 'id', 'song id is required')
+  const payload = await fetchNcm('/song/detail', { ids: id })
+  const song = Array.isArray(payload?.songs) ? payload.songs[0] : null
+
+  if (!song) {
+    throw new HttpError(404, 'song not found')
+  }
+
+  sendOk(res, {
+    id: String(song.id ?? id),
+    name: String(song.name ?? '').trim(),
+    artists: getArtists(song.ar ?? song.artists),
+    artistNames: getArtistNames(song.ar ?? song.artists),
+    albumId: String(song.al?.id ?? song.album?.id ?? '').trim() || undefined,
+    albumName: song.al?.name ?? song.album?.name ?? '未知专辑',
+    coverUrl: song.al?.picUrl ?? song.album?.picUrl ?? '',
   })
 }))
 

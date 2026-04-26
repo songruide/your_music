@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore, type LocalMusicTrack } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
 import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from '@/views/MiniPlayer/components/RecentTrackRow.vue'
 
@@ -58,6 +59,7 @@ function toPlayerTrack(track: LocalMusicTrack | RecentPlayerTrack): PlayerTrack 
     title: track.title,
     artist: track.artist,
     artists: track.artists?.map((artist) => ({ ...artist })),
+    albumId: track.albumId,
     album: track.album,
     coverUrl: track.coverUrl,
     duration: track.duration,
@@ -118,6 +120,20 @@ function handleOpenArtist(artist: ArtistRef) {
   }
 
   void router.push(targetRoute)
+}
+
+async function handleOpenAlbum(track: RecentPlayerTrack) {
+  const targetRoute = await resolveAlbumRoute({
+    id: track.id,
+    albumId: track.albumId,
+    albumName: track.album,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
 }
 
 function handlePlayNext(track: RecentPlayerTrack) {
@@ -190,6 +206,7 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
             :track="track"
             :is-current="track.id === currentTrack?.id"
             @download-track="handleDownloadTrack"
+            @open-album="handleOpenAlbum"
             @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"
@@ -423,6 +440,12 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
   color: rgba(228, 235, 255, 0.42);
   font-size: 11px;
   letter-spacing: 0.08em;
+}
+
+.local-board__header span:nth-child(5),
+.local-board__header span:nth-child(6) {
+  justify-self: end;
+  text-align: right;
 }
 
 .local-board__body {

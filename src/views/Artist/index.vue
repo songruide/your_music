@@ -10,6 +10,9 @@ import { getArtistDetail, type ArtistDetail, type ArtistMv, type ArtistSong } fr
 import type { MvPlaybackSeed } from '@/api/mv'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { resolveAlbumRoute } from '@/utils/albumRoute'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { debounce } from '@/utils/timing'
 import MvPlayerDialog from '@/views/Mv/components/MvPlayerDialog.vue'
@@ -106,10 +109,15 @@ function toPlayerTrack(song: ArtistSong) {
     title: song.name,
     artists: song.artists,
     artistNames: song.artistNames,
+    albumId: song.albumId,
     albumName: song.albumName,
     coverUrl: song.coverUrl,
     durationMs: song.duration,
   })
+}
+
+function resolveArtistKey(artist: ArtistRef, index: number) {
+  return `${artist.id || artist.name}-${index}`
 }
 
 function createPlayerQueue(tracks: ArtistSong[]) {
@@ -229,6 +237,30 @@ function openAlbum(albumId: string) {
     name: 'album-detail',
     params: { id: albumId },
   })
+}
+
+function handleOpenArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
+}
+
+async function handleOpenSongAlbum(song: Pick<ArtistSong, 'id' | 'albumId' | 'albumName'>) {
+  const targetRoute = await resolveAlbumRoute({
+    id: song.id,
+    albumId: song.albumId,
+    albumName: song.albumName,
+  })
+
+  if (!targetRoute) {
+    return
+  }
+
+  await router.push(targetRoute)
 }
 
 function switchPanel(panel: 'songs' | 'albums' | 'mvs') {
@@ -454,16 +486,66 @@ onBeforeUnmount(() => {
                 <div class="artist-table__copy">
                   <div class="artist-table__title">{{ song.name }}</div>
                   <div class="artist-table__sub artist-table__sub--mobile">
-                    {{ song.artistNames.join(' / ') || '未知歌手' }}
+                    <template v-if="song.artists.length > 0">
+                      <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                        <button
+                          class="artist-table__artist-link"
+                          type="button"
+                          :title="artist.name"
+                          :aria-label="`打开歌手 ${artist.name}`"
+                          @click.stop="handleOpenArtist(artist)"
+                        >
+                          {{ artist.name }}
+                        </button>
+                        <span
+                          v-if="artistIndex < song.artists.length - 1"
+                          class="artist-table__artist-separator"
+                          aria-hidden="true"
+                        >
+                          /
+                        </span>
+                      </template>
+                    </template>
+                    <span v-else>未知歌手</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div class="artist-table__cell artist-table__cell--artist">
-              {{ song.artistNames.join(' / ') || '未知歌手' }}
+              <template v-if="song.artists.length > 0">
+                <template v-for="(artist, artistIndex) in song.artists" :key="resolveArtistKey(artist, artistIndex)">
+                  <button
+                    class="artist-table__artist-link"
+                    type="button"
+                    :title="artist.name"
+                    :aria-label="`打开歌手 ${artist.name}`"
+                    @click.stop="handleOpenArtist(artist)"
+                  >
+                    {{ artist.name }}
+                  </button>
+                  <span
+                    v-if="artistIndex < song.artists.length - 1"
+                    class="artist-table__artist-separator"
+                    aria-hidden="true"
+                  >
+                    /
+                  </span>
+                </template>
+              </template>
+              <span v-else>未知歌手</span>
             </div>
-            <div class="artist-table__cell artist-table__cell--album">{{ song.albumName }}</div>
+            <div class="artist-table__cell artist-table__cell--album">
+              <button
+                class="artist-table__album-link"
+                type="button"
+                :title="song.albumName"
+                :aria-label="`打开专辑 ${song.albumName}`"
+                @click.stop="handleOpenSongAlbum(song)"
+              >
+                {{ song.albumName }}
+              </button>
+            </div>
             <div class="artist-table__cell artist-table__cell--numeric">
               {{ formatDurationMs(song.duration) }}
             </div>
@@ -860,6 +942,12 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.artist-table__row--head .artist-table__cell--numeric,
+.artist-table__row--head .artist-table__cell--actions {
+  justify-self: end;
+  text-align: right;
+}
+
 .artist-table__body .artist-table__row {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   color: rgba(246, 248, 255, 0.9);
@@ -962,6 +1050,29 @@ onBeforeUnmount(() => {
 
 .artist-table__sub {
   margin-top: 4px;
+}
+
+.artist-table__artist-link,
+.artist-table__album-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.artist-table__artist-link:hover,
+.artist-table__artist-link:focus-visible,
+.artist-table__album-link:hover,
+.artist-table__album-link:focus-visible {
+  outline: none;
+  color: rgba(250, 252, 255, 0.92);
+}
+
+.artist-table__artist-separator {
+  color: rgba(226, 233, 255, 0.34);
 }
 
 .artist-table__sub--mobile {
@@ -1209,6 +1320,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 160px;
   }
 
+  .artist-table__cell--actions {
+    gap: 6px;
+  }
+
   .artist-table__cell--album {
     display: none;
   }
@@ -1243,6 +1358,10 @@ onBeforeUnmount(() => {
     padding: 0 14px;
   }
 
+  .artist-table__cell--actions {
+    gap: 6px;
+  }
+
   .artist-table__cell--artist {
     display: none;
   }
@@ -1272,6 +1391,10 @@ onBeforeUnmount(() => {
 
   .artist-table__row {
     grid-template-columns: 26px minmax(0, 1fr) 144px;
+  }
+
+  .artist-table__cell--actions {
+    gap: 4px;
   }
 
   .artist-mv-grid,
