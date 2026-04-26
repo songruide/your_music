@@ -22,16 +22,7 @@ const qrNotice = computed(() => {
     return authStore.qrError
   }
 
-  switch (authStore.qrStatusCode) {
-    case 800:
-      return '二维码已过期，请刷新后重试'
-    case 802:
-      return '已扫码，请在手机上确认'
-    case 803:
-      return '登录成功，正在同步账号'
-    default:
-      return ''
-  }
+  return authStore.qrStatusCode ? authStore.qrStatusText : ''
 })
 
 let previousBodyOverflow = ''

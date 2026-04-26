@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import app from '../src/server/app.js'
+import { readAuthCookie, writeAuthCookie } from '../src/server/utils/auth-cookie.js'
 import { getLimit, getOffset } from '../src/server/utils/params.js'
 
 function listen() {
@@ -77,4 +78,27 @@ test('pagination query helpers normalize invalid input safely', () => {
   assert.equal(getOffset(undefined), 0)
   assert.equal(getOffset('-1'), 0)
   assert.equal(getOffset('12.9'), 12)
+})
+
+test('auth cookie helpers preserve long upstream session cookies in chunks', () => {
+  const cookieJar = new Map()
+  const response = {
+    clearCookie(name) {
+      cookieJar.delete(name)
+    },
+    cookie(name, value) {
+      cookieJar.set(name, String(value))
+    },
+  }
+  const upstreamCookie = `MUSIC_U=${'x'.repeat(9000)}; __csrf=csrf-token`
+
+  writeAuthCookie(response, upstreamCookie)
+
+  const request = {
+    headers: {
+      cookie: Array.from(cookieJar.entries()).map(([name, value]) => `${name}=${value}`).join('; '),
+    },
+  }
+
+  assert.equal(readAuthCookie(request), upstreamCookie)
 })

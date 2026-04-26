@@ -304,6 +304,10 @@ onBeforeUnmount(() => {
               <MessageSquareText class="player__track-action-icon" :stroke-width="2.1" />
             </button>
           </div>
+
+          <p v-if="libraryStore.persistenceError" class="player__library-error">
+            {{ libraryStore.persistenceError }}
+          </p>
         </div>
       </div>
 
@@ -709,6 +713,13 @@ onBeforeUnmount(() => {
 .player__track-action-icon {
   width: 14px;
   height: 14px;
+}
+
+.player__library-error {
+  margin: -1px 0 0;
+  color: #ffd2df;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .player__transport {

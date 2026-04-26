@@ -16,6 +16,7 @@
           loading="eager"
           decoding="async"
           fetchpriority="high"
+          referrerpolicy="no-referrer"
         />
         <div class="hero__scrim"></div>
         <div class="hero__meta">

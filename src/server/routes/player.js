@@ -4,6 +4,7 @@ import { pipeUpstreamStream } from '../services/media.js'
 import { fetchNcm } from '../services/ncm.js'
 import { buildSongStreamUrl, resolveSongSource } from '../services/player.js'
 import { fetchRecentSongTracks } from '../services/recent.js'
+import { readAuthCookie } from '../utils/auth-cookie.js'
 import {
   createRouteHandler,
   getRequiredQueryString,
@@ -12,38 +13,6 @@ import {
 } from '../utils/http.js'
 
 const router = express.Router()
-
-const AUTH_COOKIE_NAME = 'your_music_ncm_session'
-
-function readAuthCookie(req) {
-  const rawCookieHeader = req.headers.cookie ?? ''
-
-  if (!rawCookieHeader) {
-    return ''
-  }
-
-  for (const chunk of rawCookieHeader.split(';')) {
-    const [rawName, ...rawValueParts] = chunk.trim().split('=')
-
-    if (rawName !== AUTH_COOKIE_NAME) {
-      continue
-    }
-
-    const rawValue = rawValueParts.join('=')
-
-    if (!rawValue) {
-      return ''
-    }
-
-    try {
-      return decodeURIComponent(rawValue)
-    } catch {
-      return rawValue
-    }
-  }
-
-  return ''
-}
 
 router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
   const id = getRequiredQueryString(req, 'id', 'song id is required')

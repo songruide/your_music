@@ -4,10 +4,12 @@ import { storeToRefs } from 'pinia'
 import { Clock3, LogIn, Play, Trash2 } from 'lucide-vue-next'
 import { getRecentPlaybackSongs } from '@/api/player'
 import { useAuthStore } from '@/stores/auth'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
 import RecentTrackRow from './components/RecentTrackRow.vue'
 
 const authStore = useAuthStore()
+const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
 
 const { currentIndex, currentTimeSeconds, currentTrack, queue } = storeToRefs(playerStore)
@@ -17,7 +19,6 @@ const remoteTracks = ref<RecentPlayerTrack[]>([])
 const isLoading = ref(false)
 const loadError = ref('')
 const dismissedTrackIds = ref<string[]>([])
-const favoriteOverrides = ref<Record<string, boolean>>({})
 const activeSource = ref<'cloud' | 'queue'>('queue')
 
 function trackSeed(id: string) {
@@ -86,13 +87,11 @@ const fallbackTracks = computed<RecentPlayerTrack[]>(() => {
       durationSeconds > 0
         ? Math.min(Math.round(durationSeconds * progressRatio), Math.max(Math.round(durationSeconds) - 8, 0))
         : 0
-    const defaultFavorite = seed % 4 === 0
-    const overrideFavorite = favoriteOverrides.value[track.id]
 
     return {
       ...track,
       album: track.album || '单曲收藏',
-      isFavorite: overrideFavorite ?? defaultFavorite,
+      isFavorite: libraryStore.isFavorite(track.id),
       lastPlayedAt: now - index * 18 * 60 * 1000,
       lastTimeSeconds: currentTrack.value?.id === track.id ? currentTimeSeconds.value : syntheticResumeSeconds,
       playCount: Math.max(1, 7 - Math.floor(index / 3)) + (seed % 4),
@@ -105,7 +104,12 @@ const baseTracks = computed(() => (remoteTracks.value.length ? remoteTracks.valu
 const visibleTracks = computed(() => {
   const hiddenIds = new Set(dismissedTrackIds.value)
 
-  return baseTracks.value.filter((track) => !hiddenIds.has(track.id))
+  return baseTracks.value
+    .filter((track) => !hiddenIds.has(track.id))
+    .map((track) => ({
+      ...track,
+      isFavorite: libraryStore.isFavorite(track.id),
+    }))
 })
 
 const sourceCopy = computed(() => {
@@ -150,7 +154,7 @@ async function loadRecentTracks() {
     remoteTracks.value = tracks.map((track) => ({
       ...track,
       album: track.album || '单曲收藏',
-      isFavorite: favoriteOverrides.value[track.id] ?? track.isFavorite,
+      isFavorite: libraryStore.isFavorite(track.id),
     }))
     activeSource.value = remoteTracks.value.length ? 'cloud' : 'queue'
   } catch (error) {
@@ -169,20 +173,7 @@ function handleToggleFavorite(trackId: string) {
     return
   }
 
-  const nextValue = !targetTrack.isFavorite
-
-  favoriteOverrides.value = {
-    ...favoriteOverrides.value,
-    [trackId]: nextValue,
-  }
-
-  if (!remoteTracks.value.length) {
-    return
-  }
-
-  remoteTracks.value = remoteTracks.value.map((track) =>
-    track.id === trackId ? { ...track, isFavorite: nextValue } : track,
-  )
+  libraryStore.toggleFavorite(toPlayerTrack(targetTrack))
 }
 
 function handleRemoveTrack(trackId: string) {

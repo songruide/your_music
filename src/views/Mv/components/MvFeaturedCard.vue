@@ -110,7 +110,7 @@ function handleCoverError(event: Event) {
   overflow: hidden;
   text-align: left;
   cursor: pointer;
-  border-radius: 24px;
+  border-radius: 20px;
   background:
     linear-gradient(180deg, rgba(18, 16, 64, 0.96), rgba(30, 12, 63, 0.98)),
     rgba(17, 12, 52, 0.94);
@@ -202,11 +202,11 @@ function handleCoverError(event: Event) {
 }
 
 .mv-card__body {
-  min-height: 136px;
-  padding: 14px 14px 13px;
+  min-height: 112px;
+  padding: 11px 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background:
     radial-gradient(circle at 20% 0%, rgba(198, 82, 255, 0.12), transparent 32%),
     radial-gradient(circle at 82% 10%, rgba(48, 146, 255, 0.12), transparent 28%),
@@ -246,9 +246,9 @@ function handleCoverError(event: Event) {
   overflow: hidden;
   margin: 0;
   color: rgba(252, 251, 255, 0.98);
-  font-size: 18px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: 0;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -263,17 +263,17 @@ function handleCoverError(event: Event) {
 .mv-card__artist {
   margin: 0;
   color: rgba(230, 236, 255, 0.68);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .mv-card__subline {
   color: rgba(216, 224, 255, 0.42);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .mv-card__action {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -295,12 +295,12 @@ function handleCoverError(event: Event) {
   }
 
   .mv-card__body {
-    min-height: 128px;
-    padding: 13px;
+    min-height: 110px;
+    padding: 11px;
   }
 
   .mv-card__title {
-    font-size: 17px;
+    font-size: 15px;
   }
 }
 </style>

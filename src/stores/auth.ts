@@ -11,6 +11,8 @@ import {
 } from '@/api/auth'
 
 const QR_POLL_INTERVAL_MS = 2500
+const QR_SESSION_SYNC_ATTEMPTS = 5
+const QR_SESSION_SYNC_RETRY_MS = 700
 
 export const useAuthStore = defineStore('auth', () => {
   const profile = ref<AuthUserProfile | null>(null)
@@ -61,6 +63,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   function getErrorMessage(error: unknown, fallback: string) {
     return error instanceof Error ? error.message : fallback
+  }
+
+  function wait(ms: number) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms)
+    })
   }
 
   function resetQrState() {
@@ -121,6 +129,24 @@ export const useAuthStore = defineStore('auth', () => {
     return initializePromise
   }
 
+  async function syncAuthorizedQrSession() {
+    for (let attempt = 1; attempt <= QR_SESSION_SYNC_ATTEMPTS; attempt += 1) {
+      qrStatusText.value = attempt === 1 ? '登录成功，正在同步账号信息' : `登录成功，正在同步账号信息（${attempt}/${QR_SESSION_SYNC_ATTEMPTS}）`
+
+      await initialize(true)
+
+      if (loggedIn.value) {
+        return true
+      }
+
+      if (attempt < QR_SESSION_SYNC_ATTEMPTS) {
+        await wait(QR_SESSION_SYNC_RETRY_MS)
+      }
+    }
+
+    return false
+  }
+
   async function pollQrStatus(token: number) {
     if (token !== pollToken || !isLoginDialogOpen.value || loginMethod.value !== 'qr' || !qrKey.value) {
       return
@@ -139,13 +165,8 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (result.authorized) {
         stopPolling()
-        await initialize(true)
 
-        if (token !== pollToken) {
-          return
-        }
-
-        if (loggedIn.value) {
+        if (await syncAuthorizedQrSession()) {
           isLoginDialogOpen.value = false
           resetQrState()
           return

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import {
   getFeaturedMvs,
   type MvFeaturedCategory,
@@ -57,20 +57,11 @@ const currentPage = ref(1)
 const hasMore = ref(false)
 const gridBodyRef = ref<HTMLElement | null>(null)
 
-const PAGE_SIZE = 12
+const PAGE_SIZE = 20
 
 // requestToken 用来防止“旧请求覆盖新请求”。
 // 比如用户连续快速点“全部 -> 官方 -> 现场”，最慢返回的旧请求不应该把最新页面状态冲掉。
 let requestToken = 0
-
-// 当前分组描述优先从 categories 里找，是为了让“顶部 tab 数据”和“说明文案”始终来自同一份数据源。
-// 如果 categories 还没回来，再退回 collectionInfo 里的描述。
-const collectionDescription = computed(() => {
-  return (
-    categories.value.find((item) => item.key === activeCollection.value)?.description ??
-    collectionInfo.value.description
-  )
-})
 
 // loadFeatured 是当前页面的核心加载函数：
 // 传入目标分组 -> 拉接口 -> 刷新顶部文案和卡片列表。
@@ -174,11 +165,6 @@ onMounted(() => {
           <span class="mv-stage__eyebrow">{{ collectionInfo.label }}</span>
           <h1 class="mv-stage__title">MV 精选</h1>
           <p class="mv-stage__desc">精彩的音乐视频，带给你视听双重享受。</p>
-
-          <div class="mv-stage__summary">
-            <span class="mv-stage__summary-pill">{{ collectionInfo.label }}</span>
-            <span class="mv-stage__summary-text">{{ collectionDescription }}</span>
-          </div>
         </div>
 
         <div class="mv-stage__filters" aria-label="MV 分类">
@@ -200,7 +186,7 @@ onMounted(() => {
         <div v-if="error" class="mv-stage__state mv-stage__state--error">{{ error }}</div>
 
         <div v-else-if="loading && items.length === 0" class="mv-grid mv-grid--skeleton" aria-hidden="true">
-          <div v-for="item in 8" :key="item" class="mv-skeleton">
+          <div v-for="item in 10" :key="item" class="mv-skeleton">
             <div class="mv-skeleton__media"></div>
             <div class="mv-skeleton__body">
               <div class="mv-skeleton__line mv-skeleton__line--short"></div>
@@ -269,7 +255,7 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 24px 18px 18px;
+  padding: 16px 14px 12px;
   border-radius: 30px;
   background:
     radial-gradient(circle at 46% -6%, rgba(50, 170, 255, 0.42), transparent 28%),
@@ -345,10 +331,10 @@ onMounted(() => {
 
 .mv-stage__hero {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 12px;
 }
 
 .mv-stage__body {
@@ -376,51 +362,27 @@ onMounted(() => {
 .mv-stage__eyebrow {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
+  min-height: 18px;
   padding: 0 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.1);
   color: rgba(249, 247, 255, 0.86);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .mv-stage__title {
-  margin: 12px 0 8px;
+  margin: 6px 0 3px;
   color: rgba(253, 252, 255, 0.98);
-  font-size: clamp(28px, 4vw, 42px);
-  line-height: 1.04;
-  letter-spacing: -0.05em;
+  font-size: clamp(22px, 2.7vw, 30px);
+  line-height: 1.1;
+  letter-spacing: 0;
 }
 
 .mv-stage__desc {
   margin: 0;
   color: rgba(232, 238, 255, 0.76);
-  font-size: 13px;
-}
-
-.mv-stage__summary {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.mv-stage__summary-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 22px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(250, 248, 255, 0.92);
-  font-size: 10px;
-}
-
-.mv-stage__summary-text {
-  color: rgba(221, 228, 255, 0.66);
   font-size: 12px;
 }
 
@@ -432,8 +394,8 @@ onMounted(() => {
 }
 
 .mv-stage__filter {
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 28px;
+  padding: 0 11px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -475,8 +437,8 @@ onMounted(() => {
 
 .mv-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px 16px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .mv-grid--skeleton {
@@ -559,7 +521,7 @@ onMounted(() => {
 }
 
 .mv-stage__footer {
-  margin-top: 14px;
+  margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -623,7 +585,7 @@ onMounted(() => {
 
 @media (max-width: 1180px) {
   .mv-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -638,7 +600,7 @@ onMounted(() => {
   .mv-stage {
     min-height: calc(100vh - 176px);
     height: auto;
-    padding: 20px 16px 16px;
+    padding: 16px 14px 14px;
     border-radius: 26px;
   }
 
@@ -658,11 +620,6 @@ onMounted(() => {
 @media (max-width: 620px) {
   .mv-stage {
     min-height: calc(100vh - 156px);
-  }
-
-  .mv-stage__summary {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .mv-stage__filter {

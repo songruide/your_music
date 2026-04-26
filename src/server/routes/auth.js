@@ -7,63 +7,10 @@ import {
   loginWithCellphone,
   logoutSession,
 } from '../services/auth.js'
+import { clearAuthCookie, readAuthCookie, writeAuthCookie } from '../utils/auth-cookie.js'
 import { createRouteHandler, getRequiredQueryString, HttpError, sendOk } from '../utils/http.js'
 
 const router = express.Router()
-
-const AUTH_COOKIE_NAME = 'your_music_ncm_session'
-const AUTH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: 'lax',
-  path: '/',
-  maxAge: 1000 * 60 * 60 * 24 * 30,
-}
-
-function readAuthCookie(req) {
-  const rawCookieHeader = req.headers.cookie ?? ''
-
-  if (!rawCookieHeader) {
-    return ''
-  }
-
-  for (const chunk of rawCookieHeader.split(';')) {
-    const [rawName, ...rawValueParts] = chunk.trim().split('=')
-
-    if (rawName !== AUTH_COOKIE_NAME) {
-      continue
-    }
-
-    const rawValue = rawValueParts.join('=')
-
-    if (!rawValue) {
-      return ''
-    }
-
-    try {
-      return decodeURIComponent(rawValue)
-    } catch {
-      return rawValue
-    }
-  }
-
-  return ''
-}
-
-function writeAuthCookie(res, cookie) {
-  if (!cookie) {
-    return
-  }
-
-  res.cookie(AUTH_COOKIE_NAME, cookie, AUTH_COOKIE_OPTIONS)
-}
-
-function clearAuthCookie(res) {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: AUTH_COOKIE_OPTIONS.httpOnly,
-    sameSite: AUTH_COOKIE_OPTIONS.sameSite,
-    path: AUTH_COOKIE_OPTIONS.path,
-  })
-}
 
 router.get(
   '/api/auth/qr-key',

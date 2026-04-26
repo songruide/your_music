@@ -5,6 +5,9 @@ import type { PlayerTrack, RecentPlayerTrack } from './player/types'
 import type { ArtistRef } from '@/types/music'
 
 const LIBRARY_STORAGE_KEY = 'your-music:music-library:v2'
+const LIBRARY_STORAGE_VERSION = 3
+const LEGACY_PLAYER_STORAGE_KEY = 'your-music-player'
+const GUEST_USER_KEY = 'guest'
 const LOCAL_MUSIC_LIMIT = 200
 
 interface StoredLibraryTrack extends PlayerTrack {
@@ -18,9 +21,13 @@ interface StoredLibraryTrack extends PlayerTrack {
 interface UserLibrarySnapshot {
   downloadedTracks: StoredLibraryTrack[]
   favoriteTracks: StoredLibraryTrack[]
+  legacyPlayerFavoritesMigrated?: boolean
 }
 
-type LibraryStoragePayload = Record<string, UserLibrarySnapshot>
+interface LibraryStoragePayload {
+  users: Record<string, UserLibrarySnapshot>
+  version: number
+}
 
 export interface LocalMusicTrack extends RecentPlayerTrack {
   downloadedAt?: number
@@ -52,10 +59,18 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson<T>(key: string, value: T) {
   if (!canUseStorage()) {
-    return
+    return false
   }
 
-  window.localStorage.setItem(key, JSON.stringify(value))
+  try {
+    const serialized = JSON.stringify(value)
+
+    window.localStorage.setItem(key, serialized)
+
+    return window.localStorage.getItem(key) === serialized
+  } catch {
+    return false
+  }
 }
 
 function clonePlayerTrack(track: PlayerTrack): PlayerTrack {
@@ -160,23 +175,110 @@ function normalizeTrackList(value: unknown): StoredLibraryTrack[] {
     .slice(0, LOCAL_MUSIC_LIMIT)
 }
 
+function normalizeLegacyFavoriteTrackList(value: unknown): StoredLibraryTrack[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const now = Date.now()
+
+  return normalizeTrackList(
+    value
+      .filter((item) => Boolean(item && typeof item === 'object' && (item as { isFavorite?: unknown }).isFavorite === true))
+      .map((item) => {
+        const track = item as Partial<StoredLibraryTrack>
+
+        return {
+          ...track,
+          favoritedAt: Number.isFinite(track.favoritedAt) ? Number(track.favoritedAt) : now,
+        }
+      }),
+  )
+}
+
+function readLegacyPlayerFavoriteTracks() {
+  const legacyState = readJson<unknown>(LEGACY_PLAYER_STORAGE_KEY, null)
+
+  if (Array.isArray(legacyState)) {
+    return normalizeLegacyFavoriteTrackList(legacyState)
+  }
+
+  if (!legacyState || typeof legacyState !== 'object') {
+    return []
+  }
+
+  const state = legacyState as Record<string, unknown>
+
+  return normalizeTrackList([
+    ...normalizeLegacyFavoriteTrackList(state.favoriteTracks),
+    ...normalizeLegacyFavoriteTrackList(state.recentTracks),
+    ...normalizeLegacyFavoriteTrackList(state.queue),
+    ...normalizeLegacyFavoriteTrackList(state.tracks),
+  ])
+}
+
+function mergeTrackLists(primaryTracks: StoredLibraryTrack[], nextTracks: StoredLibraryTrack[]) {
+  const seenIds = new Set(primaryTracks.map((track) => track.id))
+
+  return [
+    ...primaryTracks,
+    ...nextTracks.filter((track) => {
+      if (seenIds.has(track.id)) {
+        return false
+      }
+
+      seenIds.add(track.id)
+      return true
+    }),
+  ].slice(0, LOCAL_MUSIC_LIMIT)
+}
+
 function normalizeSnapshot(value: unknown): UserLibrarySnapshot {
-  const snapshot = value as Partial<UserLibrarySnapshot>
+  const snapshot = value && typeof value === 'object' ? (value as Partial<UserLibrarySnapshot>) : {}
 
   return {
     downloadedTracks: normalizeTrackList(snapshot.downloadedTracks),
     favoriteTracks: normalizeTrackList(snapshot.favoriteTracks),
+    legacyPlayerFavoritesMigrated: Boolean(snapshot.legacyPlayerFavoritesMigrated),
   }
 }
 
-function normalizePayload(value: unknown): LibraryStoragePayload {
+function createEmptySnapshot(options: Pick<UserLibrarySnapshot, 'legacyPlayerFavoritesMigrated'> = {}) {
+  return {
+    downloadedTracks: [],
+    favoriteTracks: [],
+    legacyPlayerFavoritesMigrated: Boolean(options.legacyPlayerFavoritesMigrated),
+  }
+}
+
+function normalizeUserMap(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {}
   }
 
   return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([userKey, snapshot]) => [userKey, normalizeSnapshot(snapshot)]),
+    Object.entries(value as Record<string, unknown>)
+      .filter(([userKey]) => userKey && userKey !== 'version' && userKey !== 'users')
+      .map(([userKey, snapshot]) => [userKey, normalizeSnapshot(snapshot)]),
   )
+}
+
+function normalizePayload(value: unknown): LibraryStoragePayload {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {
+      users: {},
+      version: LIBRARY_STORAGE_VERSION,
+    }
+  }
+
+  const rawPayload = value as Record<string, unknown>
+  const version = Number(rawPayload.version)
+  const users = rawPayload.users ? normalizeUserMap(rawPayload.users) : normalizeUserMap(rawPayload)
+
+  return {
+    users,
+    version: Number.isFinite(version) && version > 0 ? version : 1,
+  }
 }
 
 function buildStoredTrack(
@@ -246,13 +348,15 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
   const payload = ref<LibraryStoragePayload>(normalizePayload(readJson(LIBRARY_STORAGE_KEY, {})))
   const downloadedTracks = ref<StoredLibraryTrack[]>([])
   const favoriteTracks = ref<StoredLibraryTrack[]>([])
+  const legacyPlayerFavoritesMigrated = ref(false)
+  const persistenceError = ref('')
 
   const currentUserKey = computed(() => {
     if (authStore.loggedIn && authStore.profile?.userId) {
       return `user:${authStore.profile.userId}`
     }
 
-    return 'guest'
+    return GUEST_USER_KEY
   })
 
   const favoriteIdSet = computed(() => new Set(favoriteTracks.value.map((track) => track.id)))
@@ -286,29 +390,97 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
       .sort(sortByLibraryTime),
   )
 
-  function loadCurrentUserState() {
-    const snapshot = payload.value[currentUserKey.value]
+  function hasSnapshotContent(snapshot?: UserLibrarySnapshot) {
+    return Boolean(snapshot && (snapshot.downloadedTracks.length > 0 || snapshot.favoriteTracks.length > 0))
+  }
 
-    if (!snapshot) {
-      downloadedTracks.value = []
-      favoriteTracks.value = []
+  function writePayload(nextPayload: LibraryStoragePayload) {
+    payload.value = {
+      users: nextPayload.users,
+      version: LIBRARY_STORAGE_VERSION,
+    }
+
+    const isPersisted = writeJson(LIBRARY_STORAGE_KEY, payload.value)
+    persistenceError.value = isPersisted ? '' : '收藏保存失败，请检查浏览器本地存储权限。'
+
+    return isPersisted
+  }
+
+  function updateStoredSnapshot(userKey: string, snapshot: UserLibrarySnapshot) {
+    writePayload({
+      users: {
+        ...payload.value.users,
+        [userKey]: normalizeSnapshot(snapshot),
+      },
+      version: LIBRARY_STORAGE_VERSION,
+    })
+  }
+
+  function mergeGuestLibraryIntoAccount(userKey: string) {
+    if (userKey === GUEST_USER_KEY) {
       return
     }
 
-    downloadedTracks.value = normalizeTrackList(snapshot.downloadedTracks)
-    favoriteTracks.value = normalizeTrackList(snapshot.favoriteTracks)
+    const guestSnapshot = payload.value.users[GUEST_USER_KEY]
+
+    if (!hasSnapshotContent(guestSnapshot)) {
+      return
+    }
+
+    const accountSnapshot = normalizeSnapshot(payload.value.users[userKey])
+
+    writePayload({
+      users: {
+        ...payload.value.users,
+        [userKey]: {
+          downloadedTracks: mergeTrackLists(accountSnapshot.downloadedTracks, guestSnapshot.downloadedTracks),
+          favoriteTracks: mergeTrackLists(accountSnapshot.favoriteTracks, guestSnapshot.favoriteTracks),
+          legacyPlayerFavoritesMigrated:
+            accountSnapshot.legacyPlayerFavoritesMigrated || guestSnapshot.legacyPlayerFavoritesMigrated,
+        },
+        [GUEST_USER_KEY]: createEmptySnapshot({
+          legacyPlayerFavoritesMigrated: guestSnapshot.legacyPlayerFavoritesMigrated,
+        }),
+      },
+      version: LIBRARY_STORAGE_VERSION,
+    })
+  }
+
+  function loadCurrentUserState() {
+    const userKey = currentUserKey.value
+
+    mergeGuestLibraryIntoAccount(userKey)
+
+    const snapshot = normalizeSnapshot(payload.value.users[userKey])
+
+    downloadedTracks.value = snapshot.downloadedTracks
+    favoriteTracks.value = snapshot.favoriteTracks
+    legacyPlayerFavoritesMigrated.value = Boolean(snapshot.legacyPlayerFavoritesMigrated)
+    migrateLegacyPlayerFavorites()
   }
 
   function persistCurrentUserState() {
-    payload.value = {
-      ...payload.value,
-      [currentUserKey.value]: {
-        downloadedTracks: downloadedTracks.value,
-        favoriteTracks: favoriteTracks.value,
-      },
+    updateStoredSnapshot(currentUserKey.value, {
+      downloadedTracks: downloadedTracks.value,
+      favoriteTracks: favoriteTracks.value,
+      legacyPlayerFavoritesMigrated: legacyPlayerFavoritesMigrated.value,
+    })
+  }
+
+  function migrateLegacyPlayerFavorites() {
+    if (legacyPlayerFavoritesMigrated.value) {
+      return
     }
 
-    writeJson(LIBRARY_STORAGE_KEY, payload.value)
+    const legacyFavorites = readLegacyPlayerFavoriteTracks()
+
+    legacyPlayerFavoritesMigrated.value = true
+
+    if (legacyFavorites.length > 0) {
+      favoriteTracks.value = mergeTrackLists(favoriteTracks.value, legacyFavorites)
+    }
+
+    persistCurrentUserState()
   }
 
   function resolveTrackSeed(trackOrId: PlayerTrack | LocalMusicTrack | string) {
@@ -410,6 +582,7 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
     isFavorite,
     isLocalTrack,
     markLocalTrackPlayed,
+    persistenceError,
     removeLocalTrack,
     toggleFavorite,
   }
