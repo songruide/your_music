@@ -17,7 +17,8 @@ const router = express.Router()
 router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
   const id = getRequiredQueryString(req, 'id', 'song id is required')
   const level = String(req.query.level ?? DEFAULT_SONG_LEVEL)
-  const { song, sourceMode } = await resolveSongSource(id, level)
+  const cookie = readAuthCookie(req)
+  const { song, sourceMode } = await resolveSongSource(id, level, { cookie })
 
   if (!song?.url) {
     throw new HttpError(404, '当前歌曲暂无可用音源')
@@ -27,7 +28,10 @@ router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
     id,
     bitrate: song.br,
     expiresIn: song.expi,
+    fee: song.fee,
+    freeTrialInfo: song.freeTrialInfo,
     level: song.level ?? level,
+    payed: song.payed,
     sampleRate: song.sr,
     sourceMode,
     streamUrl: buildSongStreamUrl(id, level),
@@ -68,7 +72,8 @@ router.get('/api/player/recent-songs', createRouteHandler(async (req, res) => {
 router.get('/api/player/stream', createRouteHandler(async (req, res) => {
   const id = getRequiredQueryString(req, 'id', 'song id is required')
   const level = String(req.query.level ?? DEFAULT_SONG_LEVEL)
-  const { song } = await resolveSongSource(id, level)
+  const cookie = readAuthCookie(req)
+  const { song } = await resolveSongSource(id, level, { cookie })
 
   if (!song?.url) {
     throw new HttpError(404, '当前歌曲暂无可用音源')

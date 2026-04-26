@@ -256,7 +256,7 @@ function goBack() {
   min-height: 0;
   height: 100%;
   padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 8px);
-  padding-top: 36px;
+  padding-top: 8px;
 }
 
 .layout__main {
@@ -266,7 +266,7 @@ function goBack() {
   gap: 12px;
   min-width: 0;
   min-height: 0;
-  width: min(1180px, 100%);
+  width: min(1420px, 100%);
   justify-self: start;
   padding-bottom: calc(var(--layout-player-height) + var(--layout-player-bottom) + 12px);
   padding-top: 8px;
@@ -369,7 +369,7 @@ function goBack() {
 
   .layout__aside {
     padding-bottom: 0;
-    padding-top: 40px;
+    padding-top: 30px;
   }
 
   .layout__player {

@@ -88,8 +88,11 @@ export const usePlayerStore = defineStore('player', () => {
     directUrl: currentTrack.value?.sourceMeta?.directUrl ?? '',
     durationSeconds: Number(durationSeconds.value.toFixed(2)),
     expiresAt: currentTrack.value?.sourceExpiresAt,
+    fee: currentTrack.value?.sourceMeta?.fee,
+    freeTrialInfo: currentTrack.value?.sourceMeta?.freeTrialInfo,
     level: currentTrack.value?.sourceMeta?.level ?? '',
     networkState: audioDiagnostics.value.networkState,
+    payed: currentTrack.value?.sourceMeta?.payed,
     playbackRate: audioDiagnostics.value.playbackRate,
     readyState: audioDiagnostics.value.readyState,
     resolvedAudioUrl: currentTrack.value?.audioUrl ?? '',
@@ -115,7 +118,10 @@ export const usePlayerStore = defineStore('player', () => {
     track.sourceMeta = {
       bitrate: source.bitrate,
       directUrl: source.url,
+      fee: source.fee,
+      freeTrialInfo: source.freeTrialInfo,
       level: source.level,
+      payed: source.payed,
       sampleRate: source.sampleRate,
       sourceMode: source.sourceMode,
       streamUrl: source.streamUrl,
@@ -448,6 +454,48 @@ export const usePlayerStore = defineStore('player', () => {
     await startPlayback(nextTrack)
   }
 
+  async function enqueueNextTrack(track: PlayerTrack) {
+    const nextTrack = cloneTrack(track)
+
+    hydrateSourceCache([nextTrack])
+
+    if (!currentTrack.value || currentIndex.value < 0 || queue.value.length === 0) {
+      setQueue([nextTrack], 0)
+
+      const firstTrack = getTrackAtIndex(currentIndex.value)
+
+      if (firstTrack) {
+        await startPlayback(firstTrack)
+      }
+
+      return
+    }
+
+    if (currentTrack.value.id === nextTrack.id) {
+      return
+    }
+
+    let nextCurrentIndex = currentIndex.value
+    const nextQueue = queue.value.filter((queuedTrack, index) => {
+      const shouldRemove = queuedTrack.id === nextTrack.id
+
+      if (shouldRemove && index < nextCurrentIndex) {
+        nextCurrentIndex -= 1
+      }
+
+      return !shouldRemove
+    })
+    const insertIndex = clamp(nextCurrentIndex + 1, 0, nextQueue.length)
+
+    queue.value = [
+      ...nextQueue.slice(0, insertIndex),
+      nextTrack,
+      ...nextQueue.slice(insertIndex),
+    ]
+    currentIndex.value = nextCurrentIndex
+    persistState(true)
+  }
+
   async function togglePlay() {
     ensureAudio()
 
@@ -633,6 +681,7 @@ export const usePlayerStore = defineStore('player', () => {
     isMuted,
     isPlaying,
     openDetail,
+    enqueueNextTrack,
     playNextTrack,
     playPreviousTrack,
     playQueue,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { ChevronDown, Heart, Play } from 'lucide-vue-next'
+import { ChevronDown, Play } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import {
   getHotArtists,
@@ -13,6 +13,8 @@ import {
   type HomeSong,
   type PlaylistCategoryGroup,
 } from '@/api/home'
+import SongRowActions from '@/components/SongRowActions.vue'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
@@ -96,6 +98,7 @@ const FALLBACK_PLAYLIST_GROUPS: PlaylistCategoryGroup[] = [
 const route = useRoute()
 const router = useRouter()
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 const { currentTrack, isPlaying } = storeToRefs(playerStore)
 
 const loadSentinel = ref<HTMLElement | null>(null)
@@ -275,6 +278,34 @@ function playSong(song: HomeSong) {
   }
 
   void playerStore.playQueue(queue, startIndex)
+}
+
+function playNextSong(song: HomeSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(toPlayerTrack(song))
+}
+
+function downloadSong(song: HomeSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(toPlayerTrack(song))
+}
+
+function toggleFavoriteSong(song: HomeSong) {
+  libraryStore.toggleFavorite(toPlayerTrack(song))
+}
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
 }
 
 function playAllSongs() {
@@ -633,14 +664,20 @@ watch(
       </div>
 
       <div class="song-list">
-        <button
+        <article
           v-for="(song, index) in songs"
           :key="song.id"
-          class="song-row"
-          :class="{ 'song-row--active': currentTrack?.id === song.id }"
-          type="button"
-          :disabled="song.playable === false"
+          class="song-row song-action-row"
+          :class="{
+            'song-row--active': currentTrack?.id === song.id,
+            'song-row--disabled': song.playable === false,
+          }"
+          :tabindex="song.playable === false ? -1 : 0"
+          role="button"
+          :aria-disabled="song.playable === false"
           @click="playSong(song)"
+          @keydown.enter.prevent="playSong(song)"
+          @keydown.space.prevent="playSong(song)"
         >
           <div class="song-row__rank">
             <span v-if="currentTrack?.id !== song.id">{{ index + 1 }}</span>
@@ -665,10 +702,18 @@ watch(
           </div>
           <div class="song-row__album">{{ song.albumName || '单曲精选' }}</div>
           <div class="song-row__duration">{{ formatDurationMs(song.duration) }}</div>
-          <div class="song-row__actions" aria-hidden="true">
-            <Heart class="song-row__action-icon" :stroke-width="1.9" />
+          <div class="song-row__actions">
+            <SongRowActions
+              :disabled="song.playable === false"
+              :is-downloaded="isLocalSong(song.id)"
+              :is-favorite="isFavoriteSong(song.id)"
+              @download="downloadSong(song)"
+              @favorite="toggleFavoriteSong(song)"
+              @play="playSong(song)"
+              @play-next="playNextSong(song)"
+            />
           </div>
-        </button>
+        </article>
       </div>
     </section>
 
@@ -1068,7 +1113,7 @@ watch(
 
 .song-row {
   display: grid;
-  grid-template-columns: 42px 48px minmax(0, 1.3fr) minmax(160px, 0.8fr) 74px 42px;
+  grid-template-columns: 42px 48px minmax(0, 1.3fr) minmax(150px, 0.7fr) 68px 136px;
   align-items: center;
   gap: 14px;
   min-height: 70px;
@@ -1098,7 +1143,7 @@ watch(
     rgba(255, 255, 255, 0.04);
 }
 
-.song-row:disabled {
+.song-row--disabled {
   cursor: not-allowed;
   opacity: 0.46;
 }
@@ -1155,11 +1200,6 @@ watch(
   display: flex;
   justify-content: flex-end;
   color: rgba(239, 244, 255, 0.6);
-}
-
-.song-row__action-icon {
-  width: 15px;
-  height: 15px;
 }
 
 .song-row__equalizer {
@@ -1262,11 +1302,10 @@ watch(
   }
 
   .song-row {
-    grid-template-columns: 34px 44px minmax(0, 1fr) 62px;
+    grid-template-columns: 34px 44px minmax(0, 1fr) 62px 128px;
   }
 
-  .song-row__album,
-  .song-row__actions {
+  .song-row__album {
     display: none;
   }
 }
@@ -1308,7 +1347,8 @@ watch(
     padding: 0 12px;
   }
 
-  .song-row__duration {
+  .song-row__duration,
+  .song-row__actions {
     display: none;
   }
 }

@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { Download, Heart, MessageSquareMore } from 'lucide-vue-next'
+import { MessageSquareMore } from 'lucide-vue-next'
 import type { SearchSong } from '@/api/search'
+import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
+import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 import { formatArtistNames, handleSearchCoverError } from '../utils'
 
 const libraryStore = useMusicLibraryStore()
+const playerStore = usePlayerStore()
 
 // 单曲表格保持“纯展示 + 事件抛出”的职责，
 // 选中歌曲后具体怎么播由页面 composable 决定。
@@ -25,6 +28,10 @@ function isFavoriteSong(songId: string) {
   return libraryStore.isFavorite(songId)
 }
 
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
+}
+
 function buildFavoriteTrack(song: SearchSong) {
   return buildPlayerTrack({
     id: song.id,
@@ -39,6 +46,22 @@ function buildFavoriteTrack(song: SearchSong) {
 
 function handleFavoriteSong(song: SearchSong) {
   libraryStore.toggleFavorite(buildFavoriteTrack(song))
+}
+
+function handlePlayNext(song: SearchSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(buildFavoriteTrack(song))
+}
+
+function handleDownloadSong(song: SearchSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(buildFavoriteTrack(song))
 }
 </script>
 
@@ -57,7 +80,7 @@ function handleFavoriteSong(song: SearchSong) {
       <article
         v-for="(song, index) in songs"
         :key="song.id"
-        class="search-table__row search-table__row--interactive"
+        class="search-table__row search-table__row--interactive song-action-row"
         :class="{
           'search-table__row--active': currentTrackId === song.id,
           'search-table__row--disabled': song.playable === false,
@@ -107,25 +130,22 @@ function handleFavoriteSong(song: SearchSong) {
           {{ formatDurationMs(song.duration) }}
         </div>
         <div class="search-table__cell search-table__cell--actions">
+          <SongRowActions
+            :disabled="song.playable === false"
+            :is-downloaded="isLocalSong(song.id)"
+            :is-favorite="isFavoriteSong(song.id)"
+            @download="handleDownloadSong(song)"
+            @favorite="handleFavoriteSong(song)"
+            @play="emit('select-track', song)"
+            @play-next="handlePlayNext(song)"
+          />
           <button
-            class="search-table__action"
-            :class="{ 'search-table__action--favorite': isFavoriteSong(song.id) }"
-            type="button"
-            :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
-            @click.stop="handleFavoriteSong(song)"
-          >
-            <Heart :stroke-width="1.9" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
-          </button>
-          <button
-            class="search-table__action"
+            class="search-table__action song-action"
             type="button"
             title="查看歌曲评论"
             @click.stop="emit('show-comments', song)"
           >
             <MessageSquareMore :stroke-width="1.9" />
-          </button>
-          <button class="search-table__action" type="button" title="下载稍后支持" @click.stop>
-            <Download :stroke-width="1.9" />
           </button>
         </div>
       </article>
@@ -140,7 +160,7 @@ function handleFavoriteSong(song: SearchSong) {
 
 .search-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.15fr) minmax(180px, 1.1fr) 74px 124px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.15fr) minmax(180px, 1.1fr) 74px 176px;
   align-items: center;
   gap: 16px;
   min-height: 58px;
@@ -346,13 +366,13 @@ function handleFavoriteSong(song: SearchSong) {
 
 @media (max-width: 1200px) {
   .search-table__row {
-    grid-template-columns: 38px minmax(220px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 118px;
+    grid-template-columns: 38px minmax(220px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 168px;
   }
 }
 
 @media (max-width: 960px) {
   .search-table__row {
-    grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 1fr) 64px 110px;
+    grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 1fr) 64px 160px;
   }
 
   .search-table__cell--album {

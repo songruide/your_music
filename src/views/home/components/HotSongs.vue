@@ -15,14 +15,20 @@
         </div>
 
         <div class="song-list">
-          <button
+          <article
             v-for="item in props.hotSongs.slice(0, 8)"
             :key="item.id"
-            class="song-item"
-            :class="{ 'song-item--active': currentTrack?.id === item.id }"
-            :disabled="item.playable === false"
-            type="button"
+            class="song-item song-action-row"
+            :class="{
+              'song-item--active': currentTrack?.id === item.id,
+              'song-item--disabled': item.playable === false,
+            }"
+            :tabindex="item.playable === false ? -1 : 0"
+            role="button"
+            :aria-disabled="item.playable === false"
             @click="handleTrackSelect(item)"
+            @keydown.enter.prevent="handleTrackSelect(item)"
+            @keydown.space.prevent="handleTrackSelect(item)"
           >
             <img
               class="song-item__cover"
@@ -37,7 +43,18 @@
               <div class="song-item__artists">{{ item.artistNames.join(' / ') }}</div>
             </div>
             <div class="song-item__duration">{{ formatDurationMs(item.duration) }}</div>
-          </button>
+            <div class="song-item__actions">
+              <SongRowActions
+                :disabled="item.playable === false"
+                :is-downloaded="isLocalSong(item.id)"
+                :is-favorite="isFavoriteSong(item.id)"
+                @download="downloadSong(item)"
+                @favorite="toggleFavoriteSong(item)"
+                @play="handleTrackSelect(item)"
+                @play-next="playNextSong(item)"
+              />
+            </div>
+          </article>
         </div>
       </section>
 </template>
@@ -46,11 +63,14 @@
 import { useRouter } from 'vue-router'
 import { type HomeSong } from '@/api/home'
 import { storeToRefs } from 'pinia'
+import SongRowActions from '@/components/SongRowActions.vue'
+import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
 import { buildPlayerTrack, formatDurationMs } from '@/utils/playerTrack'
 
 const router = useRouter()
 const playerStore = usePlayerStore()
+const libraryStore = useMusicLibraryStore()
 // 取出当前正在播放的歌曲，用来给列表里的对应项做高亮。
 const { currentTrack } = storeToRefs(playerStore)
 
@@ -80,6 +100,34 @@ function handleTrackSelect(song: HomeSong) {
   }
 
   void playerStore.playQueue(queue, startIndex)
+}
+
+function playNextSong(song: HomeSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(mapSongToPlayerTrack(song))
+}
+
+function downloadSong(song: HomeSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(mapSongToPlayerTrack(song))
+}
+
+function toggleFavoriteSong(song: HomeSong) {
+  libraryStore.toggleFavorite(mapSongToPlayerTrack(song))
+}
+
+function isFavoriteSong(songId: string) {
+  return libraryStore.isFavorite(songId)
+}
+
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
 }
 
 // 首页热门歌曲的结构和播放器队列结构并不一致，
@@ -121,10 +169,10 @@ function openDiscoverPage() {
 // 这样操作路径更短，列表型内容的点击体验也更自然。
 .song-item {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
+  grid-template-columns: 50px minmax(0, 1fr) 46px 132px;
   align-items: center;
-  gap: 14px;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px;
   width: 100%;
   border: 0;
   border-radius: 20px;
@@ -160,7 +208,7 @@ function openDiscoverPage() {
     0 12px 26px rgba(17, 10, 46, 0.22);
 }
 
-.song-item:disabled {
+.song-item--disabled {
   cursor: not-allowed;
   opacity: 0.56;
   transform: none;
@@ -173,9 +221,9 @@ function openDiscoverPage() {
 }
 
 .song-item__cover {
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
 }
 
 .song-item__body {
@@ -207,6 +255,11 @@ function openDiscoverPage() {
   font-variant-numeric: tabular-nums;
 }
 
+.song-item__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 640px) {
   // 小屏幕时收缩为单列，并隐藏时长，优先保留歌名和歌手信息。
   .song-list {
@@ -217,7 +270,8 @@ function openDiscoverPage() {
     grid-template-columns: 52px minmax(0, 1fr);
   }
 
-  .song-item__duration {
+  .song-item__duration,
+  .song-item__actions {
     display: none;
   }
 }

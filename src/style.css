@@ -44,7 +44,128 @@ input {
   font: inherit;
 }
 
+button {
+  font-family: inherit;
+}
+
 img {
   display: block;
   max-width: 100%;
+}
+
+.song-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.song-action {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(242, 246, 255, 0.76);
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.song-action:hover,
+.song-action:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.song-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.song-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.song-action--favorite.is-active {
+  color: #ff7e9f;
+}
+
+.song-action--downloaded {
+  color: #9ee6d4;
+}
+
+.song-action--on-hover {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+}
+
+.song-action[title]::before,
+.song-action[title]::after {
+  position: absolute;
+  left: 50%;
+  z-index: 40;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.song-action[title]::before {
+  content: '';
+  top: calc(100% + 4px);
+  border: 5px solid transparent;
+  border-bottom-color: rgba(15, 16, 38, 0.96);
+}
+
+.song-action[title]::after {
+  content: attr(title);
+  top: calc(100% + 13px);
+  max-width: 160px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(15, 16, 38, 0.96);
+  box-shadow: 0 10px 24px rgba(4, 6, 20, 0.26);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.song-action[title]:hover::before,
+.song-action[title]:hover::after,
+.song-action[title]:focus-visible::before,
+.song-action[title]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.song-action-row:hover .song-action--on-hover,
+.song-action-row:focus-within .song-action--on-hover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+@media (hover: none) {
+  .song-action--on-hover {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
 }

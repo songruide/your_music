@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
+import SongRowActions from '@/components/SongRowActions.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getArtistDetail, type ArtistDetail, type ArtistMv, type ArtistSong } from '@/api/artist'
 import type { MvPlaybackSeed } from '@/api/mv'
@@ -183,8 +184,30 @@ function isFavoriteSong(songId: string) {
   return libraryStore.isFavorite(songId)
 }
 
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
+}
+
 function toggleFavoriteSong(song: ArtistSong) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
+}
+
+function playNextSong(song: ArtistSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(toPlayerTrack(song))
+  showActionHint('已添加到下一首播放')
+}
+
+function downloadSong(song: ArtistSong) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(toPlayerTrack(song))
+  showActionHint('已添加到本地音乐')
 }
 
 function openMv(mv: ArtistMv) {
@@ -398,7 +421,7 @@ onBeforeUnmount(() => {
           <article
             v-for="(song, index) in artist.songs"
             :key="song.id"
-            class="artist-table__row artist-table__row--interactive"
+            class="artist-table__row artist-table__row--interactive song-action-row"
             :class="{
               'artist-table__row--active': currentTrackId === song.id,
               'artist-table__row--disabled': song.playable === false,
@@ -445,17 +468,17 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="artist-table__cell artist-table__cell--actions">
+              <SongRowActions
+                :disabled="song.playable === false"
+                :is-downloaded="isLocalSong(song.id)"
+                :is-favorite="isFavoriteSong(song.id)"
+                @download="downloadSong(song)"
+                @favorite="toggleFavoriteSong(song)"
+                @play="handleTrackSelect(song)"
+                @play-next="playNextSong(song)"
+              />
               <button
-                class="artist-table__action"
-                :class="{ 'artist-table__action--favorite': isFavoriteSong(song.id) }"
-                type="button"
-                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
-                @click.stop="toggleFavoriteSong(song)"
-              >
-                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
-              </button>
-              <button
-                class="artist-table__action"
+                class="artist-table__action song-action"
                 type="button"
                 title="查看歌曲评论"
                 @click.stop="openSongComments(song)"
@@ -818,7 +841,7 @@ onBeforeUnmount(() => {
 
 .artist-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 110px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 176px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -1164,7 +1187,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 104px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 168px;
   }
 }
 
@@ -1183,7 +1206,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 96px;
+    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 160px;
   }
 
   .artist-table__cell--album {
@@ -1215,7 +1238,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px 92px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 152px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -1248,7 +1271,7 @@ onBeforeUnmount(() => {
   }
 
   .artist-table__row {
-    grid-template-columns: 26px minmax(0, 1fr) 80px;
+    grid-template-columns: 26px minmax(0, 1fr) 144px;
   }
 
   .artist-mv-grid,

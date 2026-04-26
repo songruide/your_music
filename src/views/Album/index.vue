@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
+import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { useRoute } from 'vue-router'
 import { getAlbumDetail, type AlbumDetail, type AlbumTrack } from '@/api/album'
@@ -192,8 +193,30 @@ function isFavoriteSong(songId: string) {
   return libraryStore.isFavorite(songId)
 }
 
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
+}
+
 function toggleFavoriteSong(song: AlbumTrack) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
+}
+
+function playNextSong(song: AlbumTrack) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(toPlayerTrack(song))
+  showActionHint('已添加到下一首播放')
+}
+
+function downloadSong(song: AlbumTrack) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(toPlayerTrack(song))
+  showActionHint('已添加到本地音乐')
 }
 
 async function shareAlbum() {
@@ -341,7 +364,7 @@ onBeforeUnmount(() => {
           <article
             v-for="(song, index) in album.songs"
             :key="song.id"
-            class="album-table__row album-table__row--interactive"
+            class="album-table__row album-table__row--interactive song-action-row"
             :class="{
               'album-table__row--active': currentTrackId === song.id,
               'album-table__row--disabled': song.playable === false,
@@ -387,17 +410,17 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="album-table__cell album-table__cell--actions">
+              <SongRowActions
+                :disabled="song.playable === false"
+                :is-downloaded="isLocalSong(song.id)"
+                :is-favorite="isFavoriteSong(song.id)"
+                @download="downloadSong(song)"
+                @favorite="toggleFavoriteSong(song)"
+                @play="handleTrackSelect(song)"
+                @play-next="playNextSong(song)"
+              />
               <button
-                class="album-table__action"
-                :class="{ 'album-table__action--favorite': isFavoriteSong(song.id) }"
-                type="button"
-                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
-                @click.stop="toggleFavoriteSong(song)"
-              >
-                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
-              </button>
-              <button
-                class="album-table__action"
+                class="album-table__action song-action"
                 type="button"
                 title="查看歌曲评论"
                 @click.stop="openSongComments(song)"
@@ -656,7 +679,7 @@ onBeforeUnmount(() => {
 
 .album-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px 110px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) 72px 176px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -875,7 +898,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px 104px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) 66px 168px;
   }
 }
 
@@ -889,7 +912,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 34px minmax(0, 1fr) 64px 96px;
+    grid-template-columns: 34px minmax(0, 1fr) 64px 160px;
   }
 
   .album-table__cell--artist {
@@ -920,7 +943,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 30px minmax(0, 1fr) 60px 92px;
+    grid-template-columns: 30px minmax(0, 1fr) 60px 152px;
     gap: 12px;
     padding: 0 14px;
   }
@@ -941,7 +964,7 @@ onBeforeUnmount(() => {
   }
 
   .album-table__row {
-    grid-template-columns: 26px minmax(0, 1fr) 80px;
+    grid-template-columns: 26px minmax(0, 1fr) 144px;
   }
 }
 </style>

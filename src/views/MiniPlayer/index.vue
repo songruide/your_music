@@ -2,24 +2,114 @@
 import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Clock3, LogIn, Play, Trash2 } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { getRecentPlaybackSongs } from '@/api/player'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from './components/RecentTrackRow.vue'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
 
 const { currentIndex, currentTimeSeconds, currentTrack, queue } = storeToRefs(playerStore)
-const { initialized, loggedIn } = storeToRefs(authStore)
+const { initialized, loggedIn, profile } = storeToRefs(authStore)
 
 const remoteTracks = ref<RecentPlayerTrack[]>([])
 const isLoading = ref(false)
 const loadError = ref('')
-const dismissedTrackIds = ref<string[]>([])
+const dismissedTrackMap = ref<Record<string, number>>({})
 const activeSource = ref<'cloud' | 'queue'>('queue')
+
+const RECENT_DISMISSED_STORAGE_KEY = 'your-music:recent-dismissed:v1'
+const MAX_DISMISSED_TRACKS = 500
+
+type RecentDismissedPayload = Record<string, Record<string, number>>
+
+function canUseStorage() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
+
+function readDismissedPayload(): RecentDismissedPayload {
+  if (!canUseStorage()) {
+    return {}
+  }
+
+  try {
+    const raw = window.localStorage.getItem(RECENT_DISMISSED_STORAGE_KEY)
+
+    if (!raw) {
+      return {}
+    }
+
+    const parsed = JSON.parse(raw)
+
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as RecentDismissedPayload
+      : {}
+  } catch {
+    return {}
+  }
+}
+
+function normalizeDismissedMap(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .map(([trackId, dismissedAt]) => [trackId, Number(dismissedAt)])
+      .filter(([trackId, dismissedAt]) => trackId && Number.isFinite(dismissedAt)),
+  )
+}
+
+function writeDismissedPayload(payload: RecentDismissedPayload) {
+  if (!canUseStorage()) {
+    return
+  }
+
+  window.localStorage.setItem(RECENT_DISMISSED_STORAGE_KEY, JSON.stringify(payload))
+}
+
+const recentDismissedUserKey = computed(() =>
+  loggedIn.value && profile.value?.userId ? `user:${profile.value.userId}` : 'guest',
+)
+
+function loadDismissedTrackMap() {
+  const payload = readDismissedPayload()
+
+  dismissedTrackMap.value = normalizeDismissedMap(payload[recentDismissedUserKey.value])
+}
+
+function persistDismissedTrackMap() {
+  const payload = readDismissedPayload()
+  const sortedEntries = Object.entries(dismissedTrackMap.value)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, MAX_DISMISSED_TRACKS)
+
+  dismissedTrackMap.value = Object.fromEntries(sortedEntries)
+  payload[recentDismissedUserKey.value] = dismissedTrackMap.value
+  writeDismissedPayload(payload)
+}
+
+function isTrackDismissed(track: RecentPlayerTrack) {
+  const dismissedAt = dismissedTrackMap.value[track.id]
+
+  if (!dismissedAt) {
+    return false
+  }
+
+  if (activeSource.value === 'cloud' && track.lastPlayedAt > dismissedAt) {
+    return false
+  }
+
+  return true
+}
 
 function trackSeed(id: string) {
   return Array.from(id).reduce((total, char) => total + char.charCodeAt(0), 0)
@@ -102,10 +192,8 @@ const fallbackTracks = computed<RecentPlayerTrack[]>(() => {
 const baseTracks = computed(() => (remoteTracks.value.length ? remoteTracks.value : fallbackTracks.value))
 
 const visibleTracks = computed(() => {
-  const hiddenIds = new Set(dismissedTrackIds.value)
-
   return baseTracks.value
-    .filter((track) => !hiddenIds.has(track.id))
+    .filter((track) => !isTrackDismissed(track))
     .map((track) => ({
       ...track,
       isFavorite: libraryStore.isFavorite(track.id),
@@ -146,7 +234,6 @@ async function loadRecentTracks() {
 
   isLoading.value = true
   loadError.value = ''
-  dismissedTrackIds.value = []
 
   try {
     const tracks = await getRecentPlaybackSongs(40)
@@ -177,15 +264,43 @@ function handleToggleFavorite(trackId: string) {
 }
 
 function handleRemoveTrack(trackId: string) {
-  if (dismissedTrackIds.value.includes(trackId)) {
+  if (dismissedTrackMap.value[trackId]) {
     return
   }
 
-  dismissedTrackIds.value = [...dismissedTrackIds.value, trackId]
+  dismissedTrackMap.value = {
+    ...dismissedTrackMap.value,
+    [trackId]: Date.now(),
+  }
+  persistDismissedTrackMap()
 }
 
 function handleClearTracks() {
-  dismissedTrackIds.value = visibleTracks.value.map((track) => track.id)
+  const dismissedAt = Date.now()
+
+  dismissedTrackMap.value = {
+    ...dismissedTrackMap.value,
+    ...Object.fromEntries(visibleTracks.value.map((track) => [track.id, dismissedAt])),
+  }
+  persistDismissedTrackMap()
+}
+
+function handleOpenArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
+}
+
+function handlePlayNext(track: RecentPlayerTrack) {
+  void playerStore.enqueueNextTrack(toPlayerTrack(track))
+}
+
+function handleDownloadTrack(track: RecentPlayerTrack) {
+  libraryStore.addLocalTrack(toPlayerTrack(track))
 }
 
 async function handlePlayAll() {
@@ -216,7 +331,7 @@ watch(
       return
     }
 
-    dismissedTrackIds.value = []
+    loadDismissedTrackMap()
 
     if (isLoggedIn) {
       void loadRecentTracks()
@@ -300,9 +415,12 @@ watch(
             :index="index"
             :track="track"
             :is-current="track.id === currentTrack?.id"
+            @download-track="handleDownloadTrack"
+            @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"
             @toggle-favorite="handleToggleFavorite"
+            @open-artist="handleOpenArtist"
           />
         </div>
       </section>
@@ -559,7 +677,7 @@ watch(
 
 .recent-board__header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 96px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
   gap: 14px;
   padding: 12px 18px 10px;
   color: rgba(228, 235, 255, 0.42);
@@ -597,7 +715,7 @@ watch(
 
 @media (max-width: 960px) {
   .recent-board__header {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 92px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
   }
 
   .recent-board__header span:nth-child(4) {

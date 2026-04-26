@@ -3,7 +3,10 @@ import type { ArtistRef } from '@/types/music'
 export interface PlayerTrackSourceMeta {
   bitrate?: number
   directUrl?: string
+  fee?: number
+  freeTrialInfo?: unknown
   level?: string
+  payed?: number
   sampleRate?: number
   sourceMode?: string
   streamUrl?: string

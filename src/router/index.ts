@@ -44,6 +44,11 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/views/Mv/index.vue'),
       },
       {
+        path: 'rankings',
+        name: 'rankings',
+        component: () => import('@/views/Rankings/index.vue'),
+      },
+      {
         path: 'mini-player',
         name: 'mini-player',
         component: () => import('@/views/MiniPlayer/index.vue'),

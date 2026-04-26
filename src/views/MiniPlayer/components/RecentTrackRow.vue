@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Heart, MoreVertical } from 'lucide-vue-next'
+import { Download, Heart, ListPlus, MoreVertical, Play } from 'lucide-vue-next'
 import type { RecentPlayerTrack } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
 import {
   formatIndex,
   formatPlayCount,
@@ -14,16 +15,42 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
+  (event: 'download-track', track: RecentPlayerTrack): void
+  (event: 'open-artist', artist: ArtistRef): void
+  (event: 'play-next', track: RecentPlayerTrack): void
   (event: 'remove-track', trackId: string): void
   (event: 'resume-track', track: RecentPlayerTrack): void
   (event: 'toggle-favorite', trackId: string): void
 }>()
 
 const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : '加入喜欢'))
+const isDownloaded = computed(() => Boolean((props.track as RecentPlayerTrack & { isDownloaded?: boolean }).isDownloaded))
+const trackArtists = computed<ArtistRef[]>(() => {
+  const artists = props.track.artists
+    ?.map((artist) => ({
+      id: String(artist.id ?? '').trim(),
+      name: String(artist.name ?? '').trim(),
+    }))
+    .filter((artist) => artist.name)
+
+  if (artists?.length) {
+    return artists
+  }
+
+  return String(props.track.artist ?? '')
+    .split(/\s*(?:\/|、|,|，)\s*/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => ({
+      id: '',
+      name,
+    }))
+})
+const artistTitle = computed(() => trackArtists.value.map((artist) => artist.name).join(' / ') || '未知歌手')
 </script>
 
 <template>
-  <article class="history-row" :class="{ 'history-row--active': isCurrent }">
+  <article class="history-row song-action-row" :class="{ 'history-row--active': isCurrent }">
     <div class="history-row__index">
       <span v-if="!isCurrent">{{ formatIndex(index) }}</span>
       <span v-else class="history-row__equalizer" aria-hidden="true">
@@ -51,15 +78,58 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
       </div>
     </button>
 
-    <div class="history-row__artist" :title="track.artist">{{ track.artist }}</div>
+    <div class="history-row__artist" :title="artistTitle">
+      <template v-if="trackArtists.length">
+        <template v-for="(artist, artistIndex) in trackArtists" :key="`${artist.id || artist.name}-${artistIndex}`">
+          <button
+            class="history-row__artist-link"
+            type="button"
+            :title="artist.id ? `打开歌手 ${artist.name}` : `搜索歌手 ${artist.name}`"
+            @click.stop="emit('open-artist', artist)"
+          >
+            {{ artist.name }}
+          </button>
+          <span v-if="artistIndex < trackArtists.length - 1" class="history-row__artist-separator"> / </span>
+        </template>
+      </template>
+      <span v-else>未知歌手</span>
+    </div>
     <div class="history-row__album" :title="track.album || '单曲收藏'">{{ track.album || '单曲收藏' }}</div>
 
     <div class="history-row__duration" :title="formatPlayCount(track.playCount)">{{ track.duration }}</div>
 
-    <div class="history-row__actions">
+    <div class="history-row__actions song-actions">
       <button
-        class="history-row__icon"
-        :class="{ 'history-row__icon--favorite': track.isFavorite }"
+        class="history-row__icon song-action song-action--on-hover"
+        type="button"
+        title="播放"
+        @click.stop="emit('resume-track', track)"
+      >
+        <Play :stroke-width="2.1" />
+      </button>
+
+      <button
+        class="history-row__icon song-action song-action--on-hover"
+        type="button"
+        title="下一首播放"
+        @click.stop="emit('play-next', track)"
+      >
+        <ListPlus :stroke-width="2" />
+      </button>
+
+      <button
+        class="history-row__icon song-action song-action--on-hover"
+        :class="{ 'song-action--downloaded': isDownloaded }"
+        type="button"
+        :title="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
+        @click.stop="emit('download-track', track)"
+      >
+        <Download :stroke-width="2" />
+      </button>
+
+      <button
+        class="history-row__icon song-action song-action--favorite"
+        :class="{ 'history-row__icon--favorite': track.isFavorite, 'is-active': track.isFavorite }"
         type="button"
         :title="favoriteTitle"
         @click.stop="emit('toggle-favorite', track.id)"
@@ -68,7 +138,7 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
       </button>
 
       <button
-        class="history-row__icon"
+        class="history-row__icon song-action"
         type="button"
         title="从列表移除"
         @click.stop="emit('remove-track', track.id)"
@@ -82,7 +152,7 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
 <style scoped lang="scss">
 .history-row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 96px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
   align-items: center;
   gap: 14px;
   min-height: 54px;
@@ -224,6 +294,27 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
   white-space: nowrap;
 }
 
+.history-row__artist-link {
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.history-row__artist-link:hover,
+.history-row__artist-link:focus-visible {
+  color: rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+
+.history-row__artist-separator {
+  color: rgba(228, 235, 255, 0.34);
+}
+
 .history-row__duration {
   justify-self: end;
   color: rgba(244, 247, 255, 0.88);
@@ -234,7 +325,7 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
 .history-row__icon {
@@ -246,17 +337,8 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
   justify-content: center;
   border: 0;
   border-radius: 8px;
-  background: transparent;
-  color: rgba(239, 243, 255, 0.46);
-  cursor: pointer;
-  transition:
-    background 180ms ease,
-    color 180ms ease;
-}
-
-.history-row__icon:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(239, 243, 255, 0.82);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(239, 243, 255, 0.62);
 }
 
 .history-row__icon--favorite {
@@ -282,13 +364,13 @@ const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : 
 
 @media (max-width: 1200px) {
   .history-row {
-    grid-template-columns: 38px minmax(0, 2.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 74px 88px;
+    grid-template-columns: 38px minmax(0, 2.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 74px 160px;
   }
 }
 
 @media (max-width: 960px) {
   .history-row {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 88px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
   }
 
   .history-row__album {

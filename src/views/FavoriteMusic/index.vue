@@ -2,11 +2,15 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Heart, Play, Trash2 } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore, type LocalMusicTrack } from '@/stores/musicLibrary'
-import { usePlayerStore, type PlayerTrack } from '@/stores/player'
+import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
+import type { ArtistRef } from '@/types/music'
+import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from '@/views/MiniPlayer/components/RecentTrackRow.vue'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
@@ -48,7 +52,7 @@ function formatTotalDuration(tracks: LocalMusicTrack[]) {
   return minutes > 0 ? `${hours} 小时 ${minutes} 分` : `${hours} 小时`
 }
 
-function toPlayerTrack(track: LocalMusicTrack): PlayerTrack {
+function toPlayerTrack(track: LocalMusicTrack | RecentPlayerTrack): PlayerTrack {
   return {
     id: track.id,
     title: track.title,
@@ -104,6 +108,24 @@ function handleRemoveTrack(trackId: string) {
   }
 
   libraryStore.toggleFavorite(targetTrack)
+}
+
+function handleOpenArtist(artist: ArtistRef) {
+  const targetRoute = buildArtistRoute(artist)
+
+  if (!targetRoute) {
+    return
+  }
+
+  void router.push(targetRoute)
+}
+
+function handlePlayNext(track: RecentPlayerTrack) {
+  void playerStore.enqueueNextTrack(toPlayerTrack(track))
+}
+
+function handleDownloadTrack(track: RecentPlayerTrack) {
+  libraryStore.addLocalTrack(toPlayerTrack(track))
 }
 </script>
 
@@ -167,9 +189,12 @@ function handleRemoveTrack(trackId: string) {
             :index="index"
             :track="track"
             :is-current="track.id === currentTrack?.id"
+            @download-track="handleDownloadTrack"
+            @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"
             @toggle-favorite="handleToggleFavorite"
+            @open-artist="handleOpenArtist"
           />
         </div>
       </section>
@@ -392,7 +417,7 @@ function handleRemoveTrack(trackId: string) {
 
 .local-board__header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 96px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
   gap: 14px;
   padding: 12px 18px 10px;
   color: rgba(228, 235, 255, 0.42);
@@ -437,7 +462,7 @@ function handleRemoveTrack(trackId: string) {
 
 @media (max-width: 960px) {
   .local-board__header {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 92px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
   }
 
   .local-board__header span:nth-child(4) {

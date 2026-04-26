@@ -5,7 +5,10 @@ export interface SongPlaybackSource {
   id: string
   url: string
   bitrate?: number
+  fee?: number
+  freeTrialInfo?: unknown
   level?: string
+  payed?: number
   expiresIn?: number
   sampleRate?: number
   sourceMode?: string

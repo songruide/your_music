@@ -34,7 +34,7 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
       { label: '首页', icon: HomeFilled, to: '/' },
       { label: 'MV', icon: VideoPlay, to: '/mv' },
       { label: '搜索', icon: Search, to: '/search' },
-      { label: '排行榜', icon: TrendCharts, muted: true },
+      { label: '排行榜', icon: TrendCharts, to: '/rankings' },
     ],
   },
   {

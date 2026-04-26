@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Download, Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
+import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
+import SongRowActions from '@/components/SongRowActions.vue'
 import { useRoute } from 'vue-router'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { getPlaylistDetail, type PlaylistDetail, type PlaylistTrack } from '@/api/playlist'
@@ -200,8 +201,30 @@ function isFavoriteSong(songId: string) {
   return libraryStore.isFavorite(songId)
 }
 
+function isLocalSong(songId: string) {
+  return libraryStore.isLocalTrack(songId)
+}
+
 function toggleFavoriteSong(song: PlaylistTrack) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
+}
+
+function playNextSong(song: PlaylistTrack) {
+  if (song.playable === false) {
+    return
+  }
+
+  void playerStore.enqueueNextTrack(toPlayerTrack(song))
+  showActionHint('已添加到下一首播放')
+}
+
+function downloadSong(song: PlaylistTrack) {
+  if (song.playable === false) {
+    return
+  }
+
+  libraryStore.addLocalTrack(toPlayerTrack(song))
+  showActionHint('已添加到本地音乐')
 }
 
 async function sharePlaylist() {
@@ -372,7 +395,7 @@ onBeforeUnmount(() => {
           <article
             v-for="(song, index) in playlist.tracks"
             :key="song.id"
-            class="playlist-table__row playlist-table__row--interactive"
+            class="playlist-table__row playlist-table__row--interactive song-action-row"
             :class="{
               'playlist-table__row--active': currentTrackId === song.id,
               'playlist-table__row--disabled': song.playable === false,
@@ -419,30 +442,22 @@ onBeforeUnmount(() => {
               {{ formatDurationMs(song.duration) }}
             </div>
             <div class="playlist-table__cell playlist-table__cell--actions">
+              <SongRowActions
+                :disabled="song.playable === false"
+                :is-downloaded="isLocalSong(song.id)"
+                :is-favorite="isFavoriteSong(song.id)"
+                @download="downloadSong(song)"
+                @favorite="toggleFavoriteSong(song)"
+                @play="handleTrackSelect(song)"
+                @play-next="playNextSong(song)"
+              />
               <button
-                class="playlist-table__action"
-                :class="{ 'playlist-table__action--favorite': isFavoriteSong(song.id) }"
-                type="button"
-                :title="isFavoriteSong(song.id) ? '取消收藏' : '收藏歌曲'"
-                @click.stop="toggleFavoriteSong(song)"
-              >
-                <Heart :size="14" :stroke-width="1.95" :fill="isFavoriteSong(song.id) ? 'currentColor' : 'none'" />
-              </button>
-              <button
-                class="playlist-table__action"
+                class="playlist-table__action song-action"
                 type="button"
                 title="查看歌曲评论"
                 @click.stop="openSongComments(song)"
               >
                 <MessageSquareMore :size="14" :stroke-width="1.95" />
-              </button>
-              <button
-                class="playlist-table__action"
-                type="button"
-                title="下载稍后支持"
-                @click.stop="showActionHint('下载稍后支持')"
-              >
-                <Download :size="14" :stroke-width="1.95" />
               </button>
             </div>
           </article>
@@ -745,7 +760,7 @@ onBeforeUnmount(() => {
 
 .playlist-table__row {
   display: grid;
-  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 124px;
+  grid-template-columns: 42px minmax(280px, 1.9fr) minmax(180px, 1.1fr) minmax(180px, 1fr) 72px 176px;
   align-items: center;
   gap: 16px;
   min-height: 62px;
@@ -962,7 +977,7 @@ onBeforeUnmount(() => {
   }
 
   .playlist-table__row {
-    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 118px;
+    grid-template-columns: 38px minmax(240px, 1.7fr) minmax(150px, 1fr) minmax(140px, 0.9fr) 66px 168px;
   }
 }
 
@@ -981,7 +996,7 @@ onBeforeUnmount(() => {
   }
 
   .playlist-table__row {
-    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 110px;
+    grid-template-columns: 34px minmax(0, 1.7fr) minmax(0, 1fr) 64px 160px;
   }
 
   .playlist-table__cell--album {
