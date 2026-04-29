@@ -489,6 +489,7 @@ onBeforeUnmount(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -20px 36px rgba(6, 10, 30, 0.18),
     0 12px 24px rgba(5, 2, 18, 0.2);
+  cursor: pointer;
   pointer-events: auto;
 }
 
@@ -902,6 +903,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 3px;
   border-radius: 999px;
+  cursor: pointer;
   outline: none;
   background:
     linear-gradient(90deg, #ff76d1 0%, #f04dff var(--player-progress), rgba(255, 255, 255, 0.16) var(--player-progress), rgba(255, 255, 255, 0.16) 100%);

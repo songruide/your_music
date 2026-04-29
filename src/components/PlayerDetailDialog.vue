@@ -868,7 +868,7 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__song-copy {
-  width: min(260px, 100%);
+  width: min(316px, 100%);
   text-align: center;
 }
 
@@ -969,14 +969,33 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__timeline-shell {
-  width: min(252px, 100%);
+  width: min(316px, 100%);
 }
 
 .player-detail__mini-controls {
-  display: flex;
+  width: min(316px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px 38px 24px minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   gap: 14px;
+}
+
+.player-detail__mini-controls .player-detail__mode-button {
+  grid-column: 1;
+  justify-self: end;
+}
+
+.player-detail__mini-controls .player-detail__icon-button:first-of-type {
+  grid-column: 2;
+}
+
+.player-detail__mini-controls .player-detail__play {
+  grid-column: 3;
+}
+
+.player-detail__mini-controls .player-detail__icon-button:last-of-type {
+  grid-column: 4;
 }
 
 .player-detail__icon-button,
@@ -1097,7 +1116,7 @@ onBeforeUnmount(() => {
 }
 
 .player-detail__utility-row {
-  width: min(252px, 100%);
+  width: min(316px, 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
