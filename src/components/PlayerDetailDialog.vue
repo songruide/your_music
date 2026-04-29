@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ChevronDown,
   Disc3,
+  Languages,
   ListRestart,
   MessageSquareText,
   Pause,
@@ -30,6 +31,8 @@ import { buildSearchRoute } from '@/views/Search/utils'
 const FALLBACK_COVER_URL =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='360' viewBox='0 0 360 360'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff6cb8'/%3E%3Cstop offset='1' stop-color='%2368a7ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='360' height='360' rx='64' fill='url(%23g)'/%3E%3Ccircle cx='180' cy='138' r='48' fill='rgba(255,255,255,.72)'/%3E%3Crect x='92' y='218' width='176' height='54' rx='27' fill='rgba(255,255,255,.46)'/%3E%3C/svg%3E"
 const ACTIVE_LYRIC_LEAD_SECONDS = 0.38
+const ENGLISH_LYRIC_PATTERN = /[A-Za-z]/
+const CJK_CHARACTER_PATTERN = /[\u3400-\u9fff]/
 
 const router = useRouter()
 const playerStore = usePlayerStore()
@@ -54,6 +57,7 @@ const {
 const lyricLines = ref<ParsedLyricLine[]>([])
 const lyricsLoading = ref(false)
 const lyricsError = ref('')
+const showTranslatedLyrics = ref(false)
 const activeLineElement = ref<HTMLElement | null>(null)
 const commentsVisible = ref(false)
 
@@ -120,9 +124,34 @@ const lyricsStateText = computed(() => {
 
   return ''
 })
+const lyricCountLabel = computed(() => (lyricLines.value.length > 0 ? `${lyricLines.value.length} 行` : '同步歌词'))
+const hasManualTranslation = computed(() =>
+  lyricLines.value.some((line) => line.translation && isEnglishLyricLine(line.text)),
+)
+const translationButtonLabel = computed(() => {
+  if (!hasManualTranslation.value) {
+    return '当前歌曲暂无可用的英文歌词翻译'
+  }
+
+  return showTranslatedLyrics.value ? '关闭歌词翻译' : '打开歌词翻译'
+})
+
+function isEnglishLyricLine(text: string) {
+  const normalizedText = text.replace(/\([^)]*\)|（[^）]*）/g, '').trim()
+
+  return ENGLISH_LYRIC_PATTERN.test(normalizedText) && !CJK_CHARACTER_PATTERN.test(normalizedText)
+}
 
 function closeDialog() {
   playerStore.closeDetail()
+}
+
+function toggleTranslatedLyrics() {
+  if (!hasManualTranslation.value) {
+    return
+  }
+
+  showTranslatedLyrics.value = !showTranslatedLyrics.value
 }
 
 async function openArtist(artist: ArtistRef) {
@@ -223,6 +252,7 @@ async function loadLyrics(songId: string) {
   lyricLines.value = []
   lyricsError.value = ''
   lyricsLoading.value = true
+  showTranslatedLyrics.value = false
 
   try {
     const payload = await getSongLyrics(songId)
@@ -292,6 +322,12 @@ watch(
     void loadLyrics(songId)
   },
 )
+
+watch(hasManualTranslation, (hasTranslation) => {
+  if (!hasTranslation) {
+    showTranslatedLyrics.value = false
+  }
+})
 
 watch(activeLyricIndex, async () => {
   await nextTick()
@@ -485,7 +521,22 @@ onBeforeUnmount(() => {
           <section class="player-detail__lyrics" aria-label="歌词">
             <div class="player-detail__lyrics-head">
               <span>Lyrics</span>
-              <span>{{ lyricLines.length > 0 ? `${lyricLines.length} 行` : '同步歌词' }}</span>
+              <div class="player-detail__lyrics-actions">
+                <button
+                  class="player-detail__translation-toggle"
+                  type="button"
+                  :aria-label="translationButtonLabel"
+                  :aria-pressed="showTranslatedLyrics"
+                  :class="{ 'player-detail__translation-toggle--active': showTranslatedLyrics }"
+                  :disabled="!hasManualTranslation"
+                  :title="translationButtonLabel"
+                  @click="toggleTranslatedLyrics"
+                >
+                  <Languages class="player-detail__translation-toggle-icon" :stroke-width="1.9" />
+                  <span>歌词翻译</span>
+                </button>
+                <span>{{ lyricCountLabel }}</span>
+              </div>
             </div>
 
             <div class="player-detail__lyrics-scroll">
@@ -510,7 +561,10 @@ onBeforeUnmount(() => {
                 @keydown.space.prevent="seekToLyricLine(line.time)"
               >
                 <div class="player-detail__lyric-text">{{ line.text }}</div>
-                <div v-if="line.translation" class="player-detail__lyric-translation">
+                <div
+                  v-if="showTranslatedLyrics && line.translation && isEnglishLyricLine(line.text)"
+                  class="player-detail__lyric-translation"
+                >
                   {{ line.translation }}
                 </div>
               </div>
@@ -1126,6 +1180,59 @@ onBeforeUnmount(() => {
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.player-detail__lyrics-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.player-detail__translation-toggle {
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.46);
+  color: rgba(24, 27, 36, 0.72);
+  font: inherit;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.player-detail__translation-toggle:hover,
+.player-detail__translation-toggle:focus-visible {
+  outline: none;
+  color: rgba(20, 22, 32, 0.92);
+  background: rgba(255, 255, 255, 0.68);
+  transform: translateY(-1px);
+}
+
+.player-detail__translation-toggle--active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(230, 96, 214, 0.94), rgba(185, 94, 237, 0.92));
+  box-shadow: 0 10px 20px rgba(191, 83, 223, 0.18);
+}
+
+.player-detail__translation-toggle:disabled {
+  color: rgba(24, 27, 36, 0.34);
+  background: rgba(255, 255, 255, 0.24);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.player-detail__translation-toggle-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .player-detail__lyrics-scroll {
