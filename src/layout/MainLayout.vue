@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
+import AiAssistantPanel from '@/components/assistant/AiAssistantPanel.vue'
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
 import PlayerDetailDialog from '@/components/PlayerDetailDialog.vue'
 import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 import AuthDialog from '@/components/AuthDialog.vue'
+import { useAssistantStore } from '@/stores/assistant'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const assistantStore = useAssistantStore()
+const { isPanelOpen } = storeToRefs(assistantStore)
 
 void authStore.initialize()
 
@@ -55,6 +60,17 @@ function goBack() {
     <div class="layout__player">
       <PlayerBar />
     </div>
+
+    <Transition name="assistant-backdrop">
+      <button
+        v-if="isPanelOpen"
+        class="layout__assistant-backdrop"
+        type="button"
+        aria-label="关闭 AI 面板"
+        @click="assistantStore.closePanel()"
+      ></button>
+    </Transition>
+    <AiAssistantPanel />
 
     <AuthDialog />
     <PlayerDetailDialog />
@@ -291,6 +307,16 @@ function goBack() {
   z-index: 3;
 }
 
+.layout__assistant-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  border: 0;
+  background: rgba(4, 7, 22, 0.34);
+  backdrop-filter: blur(4px);
+  cursor: default;
+}
+
 .layout__view {
   width: 100%;
   min-width: 0;
@@ -378,6 +404,16 @@ function goBack() {
     right: auto;
     bottom: auto;
   }
+}
+
+.assistant-backdrop-enter-active,
+.assistant-backdrop-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.assistant-backdrop-enter-from,
+.assistant-backdrop-leave-to {
+  opacity: 0;
 }
 
 </style>

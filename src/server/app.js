@@ -10,6 +10,7 @@ import playlistsRoutes from './routes/playlists.js'
 import rankingsRoutes from './routes/rankings.js'
 import searchRoutes from './routes/search.js'
 import authRoutes from './routes/auth.js'
+import aiRoutes from './routes/ai.js'
 const app = express()
 
 app.use(express.json())
@@ -23,6 +24,7 @@ app.use(searchRoutes)
 app.use(mvsRoutes)
 app.use(playerRoutes)
 app.use(authRoutes)
+app.use(aiRoutes)
 app.use(rankingsRoutes)
 
 export default app

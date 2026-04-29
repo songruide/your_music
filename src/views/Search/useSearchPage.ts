@@ -19,6 +19,7 @@ import {
   getRouteKeyword,
   getRoutePage,
   getRouteSearchType,
+  isAssistantSearchRoute,
   normalizeMvResult,
   normalizePlaylistResult,
   normalizeSongResult,
@@ -82,6 +83,9 @@ export function useSearchPage() {
   const startIndex = computed(() => (currentPage.value - 1) * currentPageSize.value)
   const formattedTotalCount = computed(() => (searchResult.value?.total ?? 0).toLocaleString())
   const searchKeyword = computed(() => searchResult.value?.keyword ?? getRouteKeyword(route.query))
+  const routeSourceOptions = computed(() =>
+    isAssistantSearchRoute(route.query) ? { source: 'assistant' as const } : {},
+  )
 
   async function loadSearch(keyword: string, type: SearchCategory, page: number) {
     // requestToken 用来丢弃过期请求，避免用户连续切页/切类型时旧响应把新结果覆盖掉。
@@ -112,7 +116,7 @@ export function useSearchPage() {
       // 当 URL 里的 page 超出最大页数时，直接把路由修正到最后一页，
       // 让地址栏和展示结果始终保持一致。
       if (page > maxPage) {
-        await router.replace(buildSearchRoute(keyword, type, maxPage))
+        await router.replace(buildSearchRoute(keyword, type, maxPage, routeSourceOptions.value))
         return
       }
 
@@ -144,7 +148,7 @@ export function useSearchPage() {
       return
     }
 
-    await router.push(buildSearchRoute(keyword, activeType.value, safePage))
+    await router.push(buildSearchRoute(keyword, activeType.value, safePage, routeSourceOptions.value))
   }
 
   async function switchSearchType(type: SearchCategory) {
@@ -153,7 +157,7 @@ export function useSearchPage() {
     }
 
     const keyword = getRouteKeyword(route.query)
-    await router.push(buildSearchRoute(keyword, type, 1))
+    await router.push(buildSearchRoute(keyword, type, 1, routeSourceOptions.value))
   }
 
   function toPlayerTrack(song: SearchSong) {

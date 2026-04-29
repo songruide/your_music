@@ -8,6 +8,12 @@ import type {
 import { DEFAULT_SEARCH_TYPE, FALLBACK_COVER_URL } from './constants'
 import type { SearchResultState } from './types'
 
+export const ASSISTANT_SEARCH_SOURCE = 'assistant'
+
+interface BuildSearchRouteOptions {
+  source?: typeof ASSISTANT_SEARCH_SOURCE
+}
+
 // 路由 query 里同一个字段可能是 string / string[] / undefined，
 // 这里先统一收口，后面的路由解析逻辑都基于稳定字符串工作。
 export function getNormalizedQueryValue(value: unknown) {
@@ -42,9 +48,18 @@ export function getRoutePage(query: LocationQuery) {
   return Math.floor(rawValue)
 }
 
+export function isAssistantSearchRoute(query: LocationQuery) {
+  return getNormalizedQueryValue(query.source) === ASSISTANT_SEARCH_SOURCE
+}
+
 // buildSearchRoute 负责统一生成搜索页 URL，
 // 这样分页、切类型、外部跳转都不会各自拼 query，避免规则散落。
-export function buildSearchRoute(keyword: string, type: SearchCategory, page = 1) {
+export function buildSearchRoute(
+  keyword: string,
+  type: SearchCategory,
+  page = 1,
+  options: BuildSearchRouteOptions = {},
+) {
   const query: Record<string, string> = {}
 
   if (keyword) {
@@ -57,6 +72,10 @@ export function buildSearchRoute(keyword: string, type: SearchCategory, page = 1
 
   if (page > 1) {
     query.page = String(page)
+  }
+
+  if (options.source) {
+    query.source = options.source
   }
 
   return {
