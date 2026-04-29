@@ -583,10 +583,11 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 60;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   min-height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .player-detail__backdrop {
@@ -615,8 +616,8 @@ onBeforeUnmount(() => {
 .player-detail__panel {
   position: relative;
   z-index: 1;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(340px, 38vw) minmax(0, 1fr);

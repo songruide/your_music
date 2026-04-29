@@ -13,6 +13,8 @@ import {
   type HomeSong,
   type PlaylistCategoryGroup,
 } from '@/api/home'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
@@ -120,6 +122,8 @@ const playlistPanelOpen = ref(false)
 const artistArea = ref(-1)
 const artistType = ref(-1)
 const artistInitial = ref<string | number>(-1)
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 let requestToken = 0
 let categoriesLoaded = false
@@ -330,6 +334,18 @@ function downloadSong(song: HomeSong) {
 
 function toggleFavoriteSong(song: HomeSong) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
+}
+
+function openSongComments(song: HomeSong) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl || FALLBACK_COVER_URL,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 
 function isFavoriteSong(songId: string) {
@@ -771,6 +787,8 @@ watch(
               :disabled="song.playable === false"
               :is-downloaded="isLocalSong(song.id)"
               :is-favorite="isFavoriteSong(song.id)"
+              show-comments
+              @comments="openSongComments(song)"
               @download="downloadSong(song)"
               @favorite="toggleFavoriteSong(song)"
               @play="playSong(song)"
@@ -786,6 +804,8 @@ watch(
       <span v-else-if="hasMore">向下滚动加载更多</span>
       <span v-else>已加载全部可用内容</span>
     </div>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -1177,7 +1197,7 @@ watch(
 
 .song-row {
   display: grid;
-  grid-template-columns: 42px 48px minmax(0, 1.3fr) minmax(150px, 0.7fr) 68px 136px;
+  grid-template-columns: 42px 48px minmax(0, 1.3fr) minmax(150px, 0.7fr) 68px 164px;
   align-items: center;
   gap: 14px;
   min-height: 70px;
@@ -1390,7 +1410,7 @@ watch(
   }
 
   .song-row {
-    grid-template-columns: 34px 44px minmax(0, 1fr) 62px 128px;
+    grid-template-columns: 34px 44px minmax(0, 1fr) 62px 156px;
   }
 
   .song-row__album {

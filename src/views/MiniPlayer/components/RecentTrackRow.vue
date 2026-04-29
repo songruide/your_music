@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Download, Heart, ListPlus, MoreVertical, Play } from 'lucide-vue-next'
+import { Download, Heart, ListPlus, MessageSquareMore, MoreVertical, Play } from 'lucide-vue-next'
 import type { RecentPlayerTrack } from '@/stores/player'
 import type { ArtistRef } from '@/types/music'
 import {
@@ -19,6 +19,7 @@ const emit = defineEmits<{
   (event: 'open-album', track: RecentPlayerTrack): void
   (event: 'open-artist', artist: ArtistRef): void
   (event: 'play-next', track: RecentPlayerTrack): void
+  (event: 'show-comments', track: RecentPlayerTrack): void
   (event: 'remove-track', trackId: string): void
   (event: 'resume-track', track: RecentPlayerTrack): void
   (event: 'toggle-favorite', trackId: string): void
@@ -113,6 +114,7 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
         class="history-row__icon song-action song-action--on-hover"
         type="button"
         title="播放"
+        aria-label="播放"
         @click.stop="emit('resume-track', track)"
       >
         <Play :stroke-width="2.1" />
@@ -122,6 +124,7 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
         class="history-row__icon song-action song-action--on-hover"
         type="button"
         title="下一首播放"
+        aria-label="下一首播放"
         @click.stop="emit('play-next', track)"
       >
         <ListPlus :stroke-width="2" />
@@ -132,6 +135,7 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
         :class="{ 'song-action--downloaded': isDownloaded }"
         type="button"
         :title="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
+        :aria-label="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
         @click.stop="emit('download-track', track)"
       >
         <Download :stroke-width="2" />
@@ -142,6 +146,7 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
         :class="{ 'history-row__icon--favorite': track.isFavorite, 'is-active': track.isFavorite }"
         type="button"
         :title="favoriteTitle"
+        :aria-label="favoriteTitle"
         @click.stop="emit('toggle-favorite', track.id)"
       >
         <Heart :stroke-width="2" :fill="track.isFavorite ? 'currentColor' : 'none'" />
@@ -150,7 +155,18 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
       <button
         class="history-row__icon song-action"
         type="button"
+        title="查看歌曲评论"
+        aria-label="查看歌曲评论"
+        @click.stop="emit('show-comments', track)"
+      >
+        <MessageSquareMore :stroke-width="1.95" />
+      </button>
+
+      <button
+        class="history-row__icon song-action"
+        type="button"
         title="从列表移除"
+        aria-label="从列表移除"
         @click.stop="emit('remove-track', track.id)"
       >
         <MoreVertical :stroke-width="2" />
@@ -162,7 +178,7 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
 <style scoped lang="scss">
 .history-row {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 202px;
   align-items: center;
   gap: 14px;
   min-height: 54px;
@@ -391,13 +407,13 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
 
 @media (max-width: 1200px) {
   .history-row {
-    grid-template-columns: 38px minmax(0, 2.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 74px 160px;
+    grid-template-columns: 38px minmax(0, 2.1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 74px 194px;
   }
 }
 
 @media (max-width: 960px) {
   .history-row {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 184px;
   }
 
   .history-row__actions {

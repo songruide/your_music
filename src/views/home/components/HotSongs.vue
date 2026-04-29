@@ -70,6 +70,8 @@
                 :disabled="item.playable === false"
                 :is-downloaded="isLocalSong(item.id)"
                 :is-favorite="isFavoriteSong(item.id)"
+                show-comments
+                @comments="openSongComments(item)"
                 @download="downloadSong(item)"
                 @favorite="toggleFavoriteSong(item)"
                 @play="handleTrackSelect(item)"
@@ -78,13 +80,18 @@
             </div>
           </article>
         </div>
+
+        <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
       </section>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import type { SongCommentSeed } from '@/api/comment'
 import { type HomeSong } from '@/api/home'
 import { storeToRefs } from 'pinia'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
@@ -101,6 +108,8 @@ const { currentTrack } = storeToRefs(playerStore)
 const props = defineProps<{
   hotSongs: HomeSong[]
 }>()
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 // 点击热门歌曲时的交互规则：
 // 1. 不可播放则直接返回
@@ -144,6 +153,18 @@ function downloadSong(song: HomeSong) {
 
 function toggleFavoriteSong(song: HomeSong) {
   libraryStore.toggleFavorite(mapSongToPlayerTrack(song))
+}
+
+function openSongComments(song: HomeSong) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 
 function isFavoriteSong(songId: string) {
@@ -208,7 +229,7 @@ function openDiscoverPage() {
 // 这样操作路径更短，列表型内容的点击体验也更自然。
 .song-item {
   display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) 46px 132px;
+  grid-template-columns: 50px minmax(0, 1fr) 46px 164px;
   align-items: center;
   gap: 10px;
   padding: 10px;

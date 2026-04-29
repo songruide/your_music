@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { BarChart3, Crown, Play, RefreshCw, TrendingUp } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import type { SongCommentSeed } from '@/api/comment'
 import {
   getRankingDetail,
   getRankings,
@@ -10,6 +11,7 @@ import {
   type RankingSummary,
   type RankingTrack,
 } from '@/api/ranking'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore } from '@/stores/player'
@@ -34,6 +36,8 @@ const rankingsLoading = ref(true)
 const detailLoading = ref(false)
 const rankingsError = ref('')
 const detailError = ref('')
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 let detailRequestToken = 0
 
@@ -178,6 +182,18 @@ function downloadSong(song: RankingTrack) {
   }
 
   libraryStore.addLocalTrack(toPlayerTrack(song))
+}
+
+function openSongComments(song: RankingTrack) {
+  activeSong.value = {
+    id: song.id,
+    title: song.name,
+    artistNames: song.artistNames,
+    albumName: song.albumName,
+    coverUrl: song.coverUrl || activeRanking.value?.coverUrl || FALLBACK_COVER_URL,
+    duration: song.duration,
+  }
+  songCommentsVisible.value = true
 }
 
 function handleOpenArtist(artist: ArtistRef) {
@@ -480,6 +496,8 @@ onMounted(() => {
                   :disabled="song.playable === false"
                   :is-downloaded="isLocalSong(song.id)"
                   :is-favorite="isFavoriteSong(song.id)"
+                  show-comments
+                  @comments="openSongComments(song)"
                   @download="downloadSong(song)"
                   @favorite="toggleFavoriteSong(song)"
                   @play="handleTrackSelect(song)"
@@ -491,6 +509,8 @@ onMounted(() => {
         </section>
       </section>
     </template>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -818,7 +838,7 @@ onMounted(() => {
 
 .ranking-table__row {
   display: grid;
-  grid-template-columns: 40px minmax(220px, 1.6fr) minmax(130px, 0.85fr) minmax(130px, 0.85fr) 62px 136px;
+  grid-template-columns: 40px minmax(220px, 1.6fr) minmax(130px, 0.85fr) minmax(130px, 0.85fr) 62px 164px;
   align-items: center;
   gap: 12px;
   min-height: 50px;
@@ -1067,7 +1087,7 @@ onMounted(() => {
   }
 
   .ranking-table__row {
-    grid-template-columns: 38px minmax(200px, 1.5fr) minmax(120px, 0.9fr) 62px 132px;
+    grid-template-columns: 38px minmax(200px, 1.5fr) minmax(120px, 0.9fr) 62px 160px;
   }
 
   .ranking-table__cell--album {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { MessageSquareMore } from 'lucide-vue-next'
 import type { SearchSong } from '@/api/search'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
@@ -192,19 +191,13 @@ function resolveArtistKey(artist: ArtistRef, index: number) {
             :disabled="song.playable === false"
             :is-downloaded="isLocalSong(song.id)"
             :is-favorite="isFavoriteSong(song.id)"
+            show-comments
+            @comments="emit('show-comments', song)"
             @download="handleDownloadSong(song)"
             @favorite="handleFavoriteSong(song)"
             @play="emit('select-track', song)"
             @play-next="handlePlayNext(song)"
           />
-          <button
-            class="search-table__action song-action"
-            type="button"
-            title="查看歌曲评论"
-            @click.stop="emit('show-comments', song)"
-          >
-            <MessageSquareMore :stroke-width="1.9" />
-          </button>
         </div>
       </article>
     </div>

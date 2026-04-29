@@ -25,13 +25,19 @@
 html,
 body,
 #app {
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
   min-height: 100%;
   margin: 0;
 }
 
 body {
+  min-width: 320px;
   background: var(--app-bg-outer);
+  background-color: #120f42;
   color: #fff;
+  overflow-x: hidden;
 }
 
 a {
@@ -58,6 +64,12 @@ img {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  overflow: visible;
+  white-space: nowrap;
+}
+
+[class*='__cell--actions'] {
+  overflow: visible !important;
 }
 
 .song-action {
@@ -115,7 +127,7 @@ img {
 .song-action[title]::after {
   position: absolute;
   left: 50%;
-  z-index: 40;
+  z-index: 100;
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, 4px);

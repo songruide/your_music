@@ -7,6 +7,7 @@ const router = express.Router()
 
 const COMMENT_TARGETS = {
   mv: '/comment/mv',
+  playlist: '/comment/playlist',
   song: '/comment/music',
 }
 

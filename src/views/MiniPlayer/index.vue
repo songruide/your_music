@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Clock3, LogIn, Play, Trash2 } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import type { SongCommentSeed } from '@/api/comment'
 import { getRecentPlaybackSongs } from '@/api/player'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
@@ -13,6 +15,7 @@ import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from './components/RecentTrackRow.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
@@ -25,6 +28,9 @@ const isLoading = ref(false)
 const loadError = ref('')
 const dismissedTrackMap = ref<Record<string, number>>({})
 const activeSource = ref<'cloud' | 'queue'>('queue')
+const isImmersivePage = computed(() => route.name === 'mini-player')
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 const RECENT_DISMISSED_STORAGE_KEY = 'your-music:recent-dismissed:v1'
 const MAX_DISMISSED_TRACKS = 500
@@ -319,6 +325,18 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
   libraryStore.addLocalTrack(toPlayerTrack(track))
 }
 
+function handleShowComments(track: RecentPlayerTrack) {
+  activeSong.value = {
+    id: track.id,
+    title: track.title,
+    artistNames: track.artists?.map((artist) => artist.name).filter(Boolean) ?? [track.artist],
+    albumName: track.album,
+    coverUrl: track.coverUrl,
+    duration: track.durationMs,
+  }
+  songCommentsVisible.value = true
+}
+
 async function handlePlayAll() {
   if (!hasTracks.value) {
     return
@@ -360,11 +378,41 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  () => route.name,
+  (routeName) => {
+    if (routeName === 'mini-player') {
+      if (currentTrack.value) {
+        playerStore.openDetail()
+      }
+      return
+    }
+
+    playerStore.closeDetail()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => currentTrack.value?.id,
+  (trackId) => {
+    if (isImmersivePage.value && trackId) {
+      playerStore.openDetail()
+    }
+  },
+)
+
+onBeforeUnmount(() => {
+  if (isImmersivePage.value) {
+    playerStore.closeDetail()
+  }
+})
 </script>
 
 <template>
-  <section class="recent-page">
-    <div class="recent-shell">
+  <section class="recent-page" :class="{ 'recent-page--immersive': isImmersivePage }">
+    <div class="recent-shell" :class="{ 'recent-shell--immersive': isImmersivePage }">
       <span class="recent-shell__glow recent-shell__glow--pink"></span>
       <span class="recent-shell__glow recent-shell__glow--blue"></span>
 
@@ -436,6 +484,7 @@ watch(
             @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"
+            @show-comments="handleShowComments"
             @toggle-favorite="handleToggleFavorite"
             @open-artist="handleOpenArtist"
           />
@@ -444,6 +493,8 @@ watch(
 
       <p v-if="surfaceNotice" class="recent-notice">{{ surfaceNotice }}</p>
     </div>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -453,6 +504,10 @@ watch(
   height: 100%;
   display: flex;
   color: #fff;
+}
+
+.recent-page--immersive {
+  min-height: 100dvh;
 }
 
 .recent-shell,
@@ -475,6 +530,13 @@ watch(
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 20px 38px rgba(9, 7, 32, 0.18);
+}
+
+.recent-shell--immersive {
+  border-radius: 0;
+  padding: 20px 24px;
+  background: var(--app-panel-bg);
+  box-shadow: none;
 }
 
 .recent-shell::before {
@@ -694,7 +756,7 @@ watch(
 
 .recent-board__header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 202px;
   gap: 14px;
   padding: 12px 18px 10px;
   color: rgba(228, 235, 255, 0.42);
@@ -732,7 +794,7 @@ watch(
 
 @media (max-width: 960px) {
   .recent-board__header {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 184px;
   }
 
   .recent-board__header span:nth-child(4) {

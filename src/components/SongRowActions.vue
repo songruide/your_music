@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { Download, Heart, ListPlus, Play } from 'lucide-vue-next'
+import { Download, Heart, ListPlus, MessageSquareMore, Play } from 'lucide-vue-next'
 
 defineProps<{
   disabled?: boolean
   isDownloaded?: boolean
   isFavorite?: boolean
+  showComments?: boolean
 }>()
 
 const emit = defineEmits<{
+  (event: 'comments'): void
   (event: 'download'): void
   (event: 'favorite'): void
   (event: 'play'): void
@@ -21,6 +23,7 @@ const emit = defineEmits<{
       class="song-action song-action--on-hover"
       type="button"
       title="播放"
+      aria-label="播放"
       :disabled="disabled"
       @click.stop="emit('play')"
     >
@@ -31,6 +34,7 @@ const emit = defineEmits<{
       class="song-action song-action--on-hover"
       type="button"
       title="下一首播放"
+      aria-label="下一首播放"
       :disabled="disabled"
       @click.stop="emit('play-next')"
     >
@@ -42,6 +46,7 @@ const emit = defineEmits<{
       :class="{ 'song-action--downloaded': isDownloaded }"
       type="button"
       :title="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
+      :aria-label="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
       :disabled="disabled"
       @click.stop="emit('download')"
     >
@@ -53,9 +58,21 @@ const emit = defineEmits<{
       :class="{ 'is-active': isFavorite }"
       type="button"
       :title="isFavorite ? '取消收藏' : '收藏歌曲'"
+      :aria-label="isFavorite ? '取消收藏' : '收藏歌曲'"
       @click.stop="emit('favorite')"
     >
       <Heart :stroke-width="2" :fill="isFavorite ? 'currentColor' : 'none'" />
+    </button>
+
+    <button
+      v-if="showComments"
+      class="song-action"
+      type="button"
+      title="查看歌曲评论"
+      aria-label="查看歌曲评论"
+      @click.stop="emit('comments')"
+    >
+      <MessageSquareMore :stroke-width="1.95" />
     </button>
   </div>
 </template>

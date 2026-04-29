@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AiAssistantPanel from '@/components/assistant/AiAssistantPanel.vue'
 import SideMenu from '@/components/SideMenu.vue'
 import PlayerBar from '@/components/PlayerBar.vue'
@@ -10,11 +11,16 @@ import GlobalSearchDock from '@/components/GlobalSearchDock.vue'
 import AuthDialog from '@/components/AuthDialog.vue'
 import { useAssistantStore } from '@/stores/assistant'
 import { useAuthStore } from '@/stores/auth'
+import { usePlayerStore } from '@/stores/player'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const assistantStore = useAssistantStore()
+const playerStore = usePlayerStore()
 const { isPanelOpen } = storeToRefs(assistantStore)
+const { isDetailVisible } = storeToRefs(playerStore)
+const isImmersiveMiniPlayer = computed(() => route.name === 'mini-player')
 
 void authStore.initialize()
 
@@ -29,35 +35,42 @@ function goBack() {
 </script>
 
 <template>
-  <div class="layout">
-    <button class="layout__back-button" type="button" aria-label="返回上一页" title="返回上一页" @click="goBack">
+  <div class="layout" :class="{ 'layout--immersive': isImmersiveMiniPlayer }">
+    <button
+      v-if="!isImmersiveMiniPlayer"
+      class="layout__back-button"
+      type="button"
+      aria-label="返回上一页"
+      title="返回上一页"
+      @click="goBack"
+    >
       <ArrowLeft class="layout__back-icon" :stroke-width="2.2" />
     </button>
 
-    <div class="layout__aurora">
+    <div v-if="!isImmersiveMiniPlayer" class="layout__aurora">
       <span class="light light--pink"></span>
       <span class="light light--cyan"></span>
       <span class="light light--violet"></span>
       <span class="light light--blue"></span>
     </div>
 
-    <aside class="layout__aside">
+    <aside v-if="!isImmersiveMiniPlayer" class="layout__aside">
       <SideMenu />
     </aside>
 
-    <section class="layout__main">
-      <div class="layout__dock">
+    <section class="layout__main" :class="{ 'layout__main--immersive': isImmersiveMiniPlayer }">
+      <div v-if="!isImmersiveMiniPlayer" class="layout__dock">
         <GlobalSearchDock />
       </div>
 
-      <div class="layout__view">
-        <div class="layout__view-scroll">
+      <div class="layout__view" :class="{ 'layout__view--immersive': isImmersiveMiniPlayer }">
+        <div class="layout__view-scroll" :class="{ 'layout__view-scroll--immersive': isImmersiveMiniPlayer }">
           <RouterView />
         </div>
       </div>
     </section>
 
-    <div class="layout__player">
+    <div v-if="!isImmersiveMiniPlayer && !isDetailVisible" class="layout__player">
       <PlayerBar />
     </div>
 
@@ -95,6 +108,14 @@ function goBack() {
   overflow: hidden;
   isolation: isolate;
   background: var(--app-panel-bg);
+}
+
+.layout--immersive {
+  padding: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'main';
+  column-gap: 0;
+  background: transparent;
 }
 
 .layout__back-button {
@@ -152,6 +173,11 @@ function goBack() {
   pointer-events: none;
   background: radial-gradient(circle at center, transparent 54%, rgba(8, 10, 34, 0.26) 100%);
   opacity: 0.78;
+}
+
+.layout--immersive::before,
+.layout--immersive::after {
+  display: none;
 }
 
 .layout__aurora {
@@ -290,6 +316,12 @@ function goBack() {
   overflow: hidden;
 }
 
+.layout__main--immersive {
+  width: 100%;
+  justify-self: stretch;
+  padding: 0;
+}
+
 .layout__dock {
   position: relative;
   z-index: 4;
@@ -325,6 +357,10 @@ function goBack() {
   overflow: hidden;
 }
 
+.layout__view--immersive {
+  height: 100%;
+}
+
 .layout__view-scroll {
   width: 100%;
   height: 100%;
@@ -334,6 +370,10 @@ function goBack() {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+.layout__view-scroll--immersive {
+  padding-right: 0;
 }
 
 .layout__view-scroll::-webkit-scrollbar {

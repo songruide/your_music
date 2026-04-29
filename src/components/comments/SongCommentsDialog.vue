@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Disc3, MessageSquareMore, X } from 'lucide-vue-next'
-import { getSongComments, type CommentItem, type SongCommentSeed } from '@/api/comment'
+import { getComments, type CommentItem, type CommentTarget, type SongCommentSeed } from '@/api/comment'
 import { formatDurationMs } from '@/utils/playerTrack'
 import CommentsPanel from './CommentsPanel.vue'
 
@@ -11,7 +11,10 @@ const FALLBACK_COVER_URL =
 const COMMENT_PAGE_SIZE = 12
 
 const props = defineProps<{
+  emptyText?: string
   modelValue: boolean
+  target?: CommentTarget
+  titleLabel?: string
   song: SongCommentSeed | null
 }>()
 
@@ -36,6 +39,10 @@ const displayArtist = computed(() => props.song?.artistNames.join(' / ') || '未
 const displayAlbum = computed(() => props.song?.albumName?.trim() || '单曲')
 const displayDuration = computed(() => formatDurationMs(props.song?.duration))
 const displayCover = computed(() => props.song?.coverUrl || FALLBACK_COVER_URL)
+const hasDuration = computed(() => Number.isFinite(props.song?.duration) && (props.song?.duration ?? 0) > 0)
+const commentTarget = computed(() => props.target ?? 'song')
+const dialogTitleLabel = computed(() => props.titleLabel ?? (commentTarget.value === 'playlist' ? '歌单评论' : '歌曲评论'))
+const emptyCopy = computed(() => props.emptyText ?? (commentTarget.value === 'playlist' ? '这个歌单暂时还没有评论。' : '这首歌暂时还没有评论。'))
 
 function formatCount(value?: number) {
   if (!Number.isFinite(value) || value === undefined || value <= 0) {
@@ -78,7 +85,7 @@ async function requestComments(songId: string, offset: number, append: boolean, 
   updateLoading.value = true
 
   try {
-    const payload = await getSongComments(songId, {
+    const payload = await getComments(commentTarget.value, songId, {
       limit: COMMENT_PAGE_SIZE,
       offset,
     })
@@ -163,8 +170,8 @@ watch(
 )
 
 watch(
-  () => props.song?.id,
-  (songId) => {
+  () => [props.song?.id, commentTarget.value],
+  ([songId]) => {
     if (props.modelValue && songId) {
       void loadDialogData(songId)
     }
@@ -195,7 +202,7 @@ onBeforeUnmount(() => {
         class="song-comments-dialog__panel"
         role="dialog"
         aria-modal="true"
-        :aria-label="displayTitle || '歌曲评论'"
+        :aria-label="displayTitle || dialogTitleLabel"
       >
         <button class="song-comments-dialog__close" type="button" aria-label="关闭歌曲评论" @click="closeDialog">
           <X :size="16" :stroke-width="2.2" />
@@ -210,8 +217,8 @@ onBeforeUnmount(() => {
           />
 
           <div class="song-comments-dialog__copy">
-            <div class="song-comments-dialog__eyebrow">Song Comments</div>
-            <h2 class="song-comments-dialog__title">{{ displayTitle || '歌曲评论' }}</h2>
+            <div class="song-comments-dialog__eyebrow">{{ dialogTitleLabel }}</div>
+            <h2 class="song-comments-dialog__title">{{ displayTitle || dialogTitleLabel }}</h2>
             <p class="song-comments-dialog__artist">{{ displayArtist }}</p>
 
             <div class="song-comments-dialog__badges">
@@ -219,7 +226,7 @@ onBeforeUnmount(() => {
                 <Disc3 :size="13" :stroke-width="2" />
                 <span>{{ displayAlbum }}</span>
               </span>
-              <span class="song-comments-dialog__badge">{{ displayDuration }}</span>
+              <span v-if="hasDuration" class="song-comments-dialog__badge">{{ displayDuration }}</span>
               <span class="song-comments-dialog__badge">
                 <MessageSquareMore :size="13" :stroke-width="2" />
                 <span>{{ formatCount(total) }} 条评论</span>
@@ -235,7 +242,7 @@ onBeforeUnmount(() => {
           :hot-comments="hotComments"
           :loading="loading"
           :loading-more="loadingMore"
-          empty-text="这首歌暂时还没有评论。"
+          :empty-text="emptyCopy"
           @load-more="loadMoreComments"
           @retry="retryLoad"
         />

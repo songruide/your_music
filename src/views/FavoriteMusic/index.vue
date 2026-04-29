@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Heart, Play, Trash2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import type { SongCommentSeed } from '@/api/comment'
+import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore, type LocalMusicTrack } from '@/stores/musicLibrary'
 import { usePlayerStore, type PlayerTrack, type RecentPlayerTrack } from '@/stores/player'
@@ -19,6 +21,8 @@ const playerStore = usePlayerStore()
 const { favoriteCollection } = storeToRefs(libraryStore)
 const { displayName, loggedIn } = storeToRefs(authStore)
 const { currentTrack } = storeToRefs(playerStore)
+const activeSong = ref<SongCommentSeed | null>(null)
+const songCommentsVisible = ref(false)
 
 const visibleTracks = computed<LocalMusicTrack[]>(() =>
   favoriteCollection.value.map((track) => ({
@@ -143,6 +147,18 @@ function handlePlayNext(track: RecentPlayerTrack) {
 function handleDownloadTrack(track: RecentPlayerTrack) {
   libraryStore.addLocalTrack(toPlayerTrack(track))
 }
+
+function handleShowComments(track: RecentPlayerTrack) {
+  activeSong.value = {
+    id: track.id,
+    title: track.title,
+    artistNames: track.artists?.map((artist) => artist.name).filter(Boolean) ?? [track.artist],
+    albumName: track.album,
+    coverUrl: track.coverUrl,
+    duration: track.durationMs,
+  }
+  songCommentsVisible.value = true
+}
 </script>
 
 <template>
@@ -210,12 +226,15 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
             @play-next="handlePlayNext"
             @remove-track="handleRemoveTrack"
             @resume-track="handleResumeTrack"
+            @show-comments="handleShowComments"
             @toggle-favorite="handleToggleFavorite"
             @open-artist="handleOpenArtist"
           />
         </div>
       </section>
     </div>
+
+    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
   </section>
 </template>
 
@@ -434,7 +453,7 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
 
 .local-board__header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 168px;
+  grid-template-columns: 38px minmax(0, 2.5fr) minmax(0, 1.65fr) minmax(0, 1.6fr) 74px 202px;
   gap: 14px;
   padding: 12px 18px 10px;
   color: rgba(228, 235, 255, 0.42);
@@ -485,7 +504,7 @@ function handleDownloadTrack(track: RecentPlayerTrack) {
 
 @media (max-width: 960px) {
   .local-board__header {
-    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 152px;
+    grid-template-columns: 34px minmax(0, 2.2fr) minmax(0, 1.2fr) 74px 184px;
   }
 
   .local-board__header span:nth-child(4) {

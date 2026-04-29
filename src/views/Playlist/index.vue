@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
-import type { SongCommentSeed } from '@/api/comment'
+import { Heart, Play, Share2, Shuffle } from 'lucide-vue-next'
+import type { CommentTarget, SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -30,6 +30,7 @@ const playlist = ref<PlaylistDetail | null>(null)
 const actionHint = ref('')
 const isLiked = ref(false)
 const activeSong = ref<SongCommentSeed | null>(null)
+const activeCommentTarget = ref<CommentTarget>('song')
 const songCommentsVisible = ref(false)
 
 let requestToken = 0
@@ -219,6 +220,7 @@ function toggleLiked() {
 }
 
 function openSongComments(song: PlaylistTrack) {
+  activeCommentTarget.value = 'song'
   activeSong.value = {
     id: song.id,
     title: song.name,
@@ -226,6 +228,22 @@ function openSongComments(song: PlaylistTrack) {
     albumName: song.albumName,
     coverUrl: song.coverUrl || playlist.value?.coverUrl || FALLBACK_COVER_URL,
     duration: song.duration,
+  }
+  songCommentsVisible.value = true
+}
+
+function openPlaylistComments() {
+  if (!playlist.value) {
+    return
+  }
+
+  activeCommentTarget.value = 'playlist'
+  activeSong.value = {
+    id: playlist.value.id,
+    title: playlist.value.name,
+    artistNames: [playlist.value.creator.nickname],
+    albumName: '推荐歌单',
+    coverUrl: playlist.value.coverUrl || FALLBACK_COVER_URL,
   }
   songCommentsVisible.value = true
 }
@@ -404,7 +422,9 @@ onBeforeUnmount(() => {
       <div class="playlist-toolbar">
         <div class="playlist-toolbar__tabs">
           <span class="playlist-toolbar__tab playlist-toolbar__tab--active">歌曲 {{ playlist.trackCount }}</span>
-          <span class="playlist-toolbar__tab">评论 {{ formatCount(playlist.commentCount) }}</span>
+          <button class="playlist-toolbar__tab" type="button" @click="openPlaylistComments">
+            评论 {{ formatCount(playlist.commentCount) }}
+          </button>
           <span class="playlist-toolbar__tab">分享 {{ formatCount(playlist.shareCount) }}</span>
         </div>
         <div class="playlist-toolbar__sort">默认排序</div>
@@ -529,26 +549,26 @@ onBeforeUnmount(() => {
                 :disabled="song.playable === false"
                 :is-downloaded="isLocalSong(song.id)"
                 :is-favorite="isFavoriteSong(song.id)"
+                show-comments
+                @comments="openSongComments(song)"
                 @download="downloadSong(song)"
                 @favorite="toggleFavoriteSong(song)"
                 @play="handleTrackSelect(song)"
                 @play-next="playNextSong(song)"
               />
-              <button
-                class="playlist-table__action song-action"
-                type="button"
-                title="查看歌曲评论"
-                @click.stop="openSongComments(song)"
-              >
-                <MessageSquareMore :size="14" :stroke-width="1.95" />
-              </button>
             </div>
           </article>
         </div>
       </section>
     </template>
 
-    <SongCommentsDialog v-model="songCommentsVisible" :song="activeSong" />
+    <SongCommentsDialog
+      v-model="songCommentsVisible"
+      :empty-text="activeCommentTarget === 'playlist' ? '这个歌单暂时还没有评论。' : undefined"
+      :song="activeSong"
+      :target="activeCommentTarget"
+      :title-label="activeCommentTarget === 'playlist' ? '歌单评论' : '歌曲评论'"
+    />
   </section>
 </template>
 
@@ -814,8 +834,20 @@ onBeforeUnmount(() => {
 }
 
 .playlist-toolbar__tab {
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: rgba(234, 239, 255, 0.56);
+  cursor: pointer;
+  font: inherit;
   font-size: 13px;
+  transition: color 180ms ease;
+}
+
+.playlist-toolbar__tab:hover,
+.playlist-toolbar__tab:focus-visible {
+  outline: none;
+  color: rgba(250, 251, 255, 0.88);
 }
 
 .playlist-toolbar__tab--active {

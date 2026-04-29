@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { Heart, MessageSquareMore, Play, Share2, Shuffle } from 'lucide-vue-next'
+import { Heart, Play, Share2, Shuffle } from 'lucide-vue-next'
 import type { SongCommentSeed } from '@/api/comment'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
 import SongRowActions from '@/components/SongRowActions.vue'
@@ -472,19 +472,13 @@ onBeforeUnmount(() => {
                 :disabled="song.playable === false"
                 :is-downloaded="isLocalSong(song.id)"
                 :is-favorite="isFavoriteSong(song.id)"
+                show-comments
+                @comments="openSongComments(song)"
                 @download="downloadSong(song)"
                 @favorite="toggleFavoriteSong(song)"
                 @play="handleTrackSelect(song)"
                 @play-next="playNextSong(song)"
               />
-              <button
-                class="album-table__action song-action"
-                type="button"
-                title="查看歌曲评论"
-                @click.stop="openSongComments(song)"
-              >
-                <MessageSquareMore :size="14" :stroke-width="1.95" />
-              </button>
             </div>
           </article>
         </div>

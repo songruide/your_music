@@ -1,6 +1,6 @@
 import { request } from '@/utils/request'
 
-export type CommentTarget = 'song' | 'mv'
+export type CommentTarget = 'song' | 'mv' | 'playlist'
 
 export interface CommentUser {
   id: string
@@ -69,5 +69,17 @@ export function getSongComments(id: string, options: CommentQueryOptions = {}) {
 export function getMvComments(id: string, options: CommentQueryOptions = {}) {
   return request<CommentListResponse>('/api/comments', {
     params: buildCommentParams('mv', id, options),
+  })
+}
+
+export function getPlaylistComments(id: string, options: CommentQueryOptions = {}) {
+  return request<CommentListResponse>('/api/comments', {
+    params: buildCommentParams('playlist', id, options),
+  })
+}
+
+export function getComments(target: CommentTarget, id: string, options: CommentQueryOptions = {}) {
+  return request<CommentListResponse>('/api/comments', {
+    params: buildCommentParams(target, id, options),
   })
 }
