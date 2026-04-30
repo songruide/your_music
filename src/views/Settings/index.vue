@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   BrainCircuit,
@@ -20,11 +20,23 @@ import {
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
+import { usePlayerStore } from '@/stores/player'
+import {
+  DOWNLOAD_TASK_OPTIONS,
+  FONT_SIZE_OPTIONS,
+  NAME_FORMAT_OPTIONS,
+  PLAY_COMPLETION_ACTIONS,
+  PRESET_OPTIONS,
+  QUALITY_OPTIONS,
+  THEME_OPTIONS,
+  type BooleanSettingKey,
+} from '@/stores/settings'
+import { useSettingsStore } from '@/stores/settings'
 
-type ToggleSetting = {
+type ToggleSettingConfig = {
+  key: BooleanSettingKey
   title: string
   description: string
-  enabled: boolean
 }
 
 type EqualizerBand = {
@@ -34,93 +46,99 @@ type EqualizerBand = {
 
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
+const playerStore = usePlayerStore()
+const settingsStore = useSettingsStore()
 const { avatarFallback, avatarUrl, displayName, isSessionLoading, loggedIn } = storeToRefs(authStore)
 const { downloadedCollection, favoriteCollection } = storeToRefs(libraryStore)
+const {
+  blurStrength,
+  cachePercent,
+  cacheUsedGb,
+  completionAction,
+  downloadDir,
+  downloadTaskCount,
+  fadeSeconds,
+  fontSize,
+  nameFormat,
+  preset,
+  quality,
+  theme,
+  toggles,
+  tuningStrength,
+} = storeToRefs(settingsStore)
 
-const fadeSeconds = ref(4)
-const blurStrength = ref(60)
-const tuningStrength = ref(68)
-const cacheUsedGb = ref(2.35)
-const selectedQuality = ref('无损优先')
-const selectedCompletionAction = ref('停止播放')
-const selectedTheme = ref('夜航极光')
-const selectedFontSize = ref('标准')
-const selectedPreset = ref('深夜')
+const qualityOptions = QUALITY_OPTIONS
+const completionActions = PLAY_COMPLETION_ACTIONS
+const themeOptions = THEME_OPTIONS
+const fontSizeOptions = FONT_SIZE_OPTIONS
+const presetOptions = PRESET_OPTIONS
+const downloadTaskOptions = DOWNLOAD_TASK_OPTIONS
+const nameFormatOptions = NAME_FORMAT_OPTIONS
 
-const qualityOptions = ['智能推荐', '无损优先', '标准']
-const completionActions = ['停止播放', '播放相似', '列表循环']
-const themeOptions = ['跟随系统', '浅色', '深色', '夜航极光']
-const fontSizeOptions = ['A-', '标准', 'A+']
-const presetOptions = ['深夜', '通勤', '专注', '流行', '摇滚']
-const downloadTaskOptions = ['1', '3', '5']
-const selectedDownloadTasks = ref('3')
-const nameFormatOptions = ['歌手 - 歌曲名', '歌曲名 - 歌手', '专辑/歌曲名']
-const selectedNameFormat = ref('歌手 - 歌曲名')
-
-const playbackSettings = ref<ToggleSetting[]>([
+const playbackSettings: ToggleSettingConfig[] = [
   {
+    key: 'volumeNormalization',
     title: '音量均衡',
     description: '不同歌曲响度自动拉平',
-    enabled: true,
   },
   {
+    key: 'autoSimilarSongs',
     title: '自动播放相似歌曲',
     description: '队列结束后延续当前氛围',
-    enabled: true,
   },
-])
+]
 
-const downloadSettings = ref<ToggleSetting[]>([
+const downloadSettings: ToggleSettingConfig[] = [
   {
+    key: 'downloadLyrics',
     title: '下载歌词',
     description: '保存歌曲时同步缓存歌词',
-    enabled: true,
   },
-])
+]
 
-const appearanceSettings = ref<ToggleSetting[]>([
+const appearanceSettings: ToggleSettingConfig[] = [
   {
+    key: 'dynamicBackground',
     title: '动态背景',
     description: '保留极光光束与柔和流动',
-    enabled: true,
   },
-])
+]
 
-const aiSettings = ref<ToggleSetting[]>([
+const aiSettings: ToggleSettingConfig[] = [
   {
+    key: 'aiSmartRecommend',
     title: '智能推荐',
     description: '基于你的听歌习惯推荐',
-    enabled: true,
   },
   {
+    key: 'aiPlaylistGeneration',
     title: 'AI 歌单生成',
     description: '根据心情与场景生成歌单',
-    enabled: true,
   },
   {
+    key: 'aiSongInsight',
     title: 'AI 歌曲解读',
     description: '生成歌曲背景与歌词解读',
-    enabled: false,
   },
-])
+]
 
-const privacySettings = ref<ToggleSetting[]>([
+const privacySettings: ToggleSettingConfig[] = [
   {
+    key: 'rememberListeningPreference',
     title: '记住听歌偏好',
     description: '同步你的播放记录与偏好设置',
-    enabled: true,
   },
   {
+    key: 'syncPlaybackProgress',
     title: '同步播放进度',
     description: '在不同设备间同步播放进度',
-    enabled: true,
   },
   {
+    key: 'personalizedRecommendation',
     title: '个性化推荐',
     description: '基于收听行为优化推荐内容',
-    enabled: true,
   },
-])
+]
 
 const equalizerBands: EqualizerBand[] = [
   { label: '32', value: 42 },
@@ -138,40 +156,41 @@ const equalizerBands: EqualizerBand[] = [
 const accountTitle = computed(() => (loggedIn.value ? '网易云账号已连接' : '连接网易云账号'))
 const accountMeta = computed(() => (loggedIn.value ? `${displayName.value} · LV.10` : '扫码登录后同步收藏和偏好'))
 const syncStatus = computed(() => (loggedIn.value ? '同步完成 · 1 分钟前' : '等待登录'))
-const cachePercent = computed(() => Math.min(Math.round((cacheUsedGb.value / 10) * 100), 100))
 const librarySummary = computed(() => [
   { label: '收藏', value: favoriteCollection.value.length },
   { label: '本地', value: downloadedCollection.value.length },
   { label: '缓存', value: `${cacheUsedGb.value.toFixed(2)} GB` },
 ])
 const presetDescription = computed(() => {
-  if (selectedPreset.value === '深夜') {
+  if (preset.value === '深夜') {
     return '降低低频轰头，提升人声清晰度，适合安静的夜晚。'
   }
 
-  if (selectedPreset.value === '通勤') {
+  if (preset.value === '通勤') {
     return '增强节奏和中频穿透，适合路上听歌。'
   }
 
-  if (selectedPreset.value === '专注') {
+  if (preset.value === '专注') {
     return '压低刺激频段，让背景音乐更稳。'
   }
 
   return '强化情绪和动态，让歌曲更有现场感。'
 })
 
-function toggleSetting(setting: ToggleSetting) {
-  setting.enabled = !setting.enabled
-}
+watch(
+  completionAction,
+  (nextAction) => {
+    if (nextAction === '列表循环' && playerStore.playMode !== 'list-loop') {
+      playerStore.setPlayMode('list-loop')
+      return
+    }
 
-function clearCache() {
-  cacheUsedGb.value = 0
-}
-
-function resetTuning() {
-  selectedPreset.value = '深夜'
-  tuningStrength.value = 68
-}
+    if (nextAction === '停止播放' && playerStore.playMode !== 'sequential') {
+      playerStore.setPlayMode('sequential')
+    }
+  },
+  { immediate: true },
+)
 
 function handleAccountAction() {
   if (loggedIn.value) {
@@ -180,6 +199,20 @@ function handleAccountAction() {
   }
 
   authStore.openLoginDialog('qr')
+}
+
+function handleChangeDownloadDir() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const nextDir = window.prompt('设置下载目录', downloadDir.value)
+
+  if (nextDir === null) {
+    return
+  }
+
+  settingsStore.setDownloadDir(nextDir)
 }
 
 function handleLogout() {
@@ -255,7 +288,7 @@ function handleLogout() {
           </div>
           <span class="setting-line__value">{{ fadeSeconds }}s</span>
           <input
-            v-model="fadeSeconds"
+            v-model.number="fadeSeconds"
             class="settings-range"
             :style="{ '--settings-progress': `${(fadeSeconds / 8) * 100}%` }"
             type="range"
@@ -271,13 +304,13 @@ function handleLogout() {
           :key="setting.title"
           class="setting-line"
           type="button"
-          @click="toggleSetting(setting)"
+          @click="settingsStore.toggleSetting(setting.key)"
         >
           <span class="setting-line__copy">
             <strong>{{ setting.title }}</strong>
             <small>{{ setting.description }}</small>
           </span>
-          <span class="settings-switch" :class="{ 'is-on': setting.enabled }" aria-hidden="true"></span>
+          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
         </button>
 
         <div class="setting-line setting-line--stacked">
@@ -289,8 +322,8 @@ function handleLogout() {
               v-for="option in completionActions"
               :key="option"
               type="button"
-              :class="{ 'is-active': selectedCompletionAction === option }"
-              @click="selectedCompletionAction = option"
+              :class="{ 'is-active': completionAction === option }"
+              @click="settingsStore.setCompletionAction(option)"
             >
               {{ option }}
             </button>
@@ -315,8 +348,8 @@ function handleLogout() {
               v-for="option in qualityOptions"
               :key="option"
               type="button"
-              :class="{ 'is-active': selectedQuality === option }"
-              @click="selectedQuality = option"
+              :class="{ 'is-active': quality === option }"
+              @click="settingsStore.setQuality(option)"
             >
               {{ option }}
             </button>
@@ -326,9 +359,9 @@ function handleLogout() {
         <div class="setting-line">
           <span class="setting-line__copy setting-line__copy--inline">
             <strong>下载目录</strong>
-            <small>D:\YourMusic\Downloads</small>
+            <small>{{ downloadDir }}</small>
           </span>
-          <button class="mini-button" type="button">
+          <button class="mini-button" type="button" @click="handleChangeDownloadDir">
             <FolderOpen :stroke-width="1.8" />
             更改
           </button>
@@ -338,7 +371,7 @@ function handleLogout() {
           <span class="setting-line__copy">
             <strong>同时下载任务数</strong>
           </span>
-          <select v-model="selectedDownloadTasks" class="select-pill" aria-label="同时下载任务数">
+          <select v-model="downloadTaskCount" class="select-pill" aria-label="同时下载任务数">
             <option v-for="option in downloadTaskOptions" :key="option">{{ option }}</option>
           </select>
         </div>
@@ -347,7 +380,7 @@ function handleLogout() {
           <span class="setting-line__copy">
             <strong>歌曲命名格式</strong>
           </span>
-          <select v-model="selectedNameFormat" class="select-pill" aria-label="歌曲命名格式">
+          <select v-model="nameFormat" class="select-pill" aria-label="歌曲命名格式">
             <option v-for="option in nameFormatOptions" :key="option">{{ option }}</option>
           </select>
         </div>
@@ -357,13 +390,13 @@ function handleLogout() {
           :key="setting.title"
           class="setting-line"
           type="button"
-          @click="toggleSetting(setting)"
+          @click="settingsStore.toggleSetting(setting.key)"
         >
           <span class="setting-line__copy">
             <strong>{{ setting.title }}</strong>
             <small>{{ setting.description }}</small>
           </span>
-          <span class="settings-switch" :class="{ 'is-on': setting.enabled }" aria-hidden="true"></span>
+          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
         </button>
       </section>
 
@@ -375,7 +408,7 @@ function handleLogout() {
             </span>
             <h2>快速调音</h2>
           </span>
-          <button class="mini-button mini-button--soft" type="button" @click="resetTuning">重置</button>
+          <button class="mini-button mini-button--soft" type="button" @click="settingsStore.resetTuning">重置</button>
         </header>
 
         <div class="equalizer" aria-hidden="true">
@@ -387,20 +420,20 @@ function handleLogout() {
 
         <div class="preset-row">
           <button
-            v-for="preset in presetOptions"
-            :key="preset"
+            v-for="presetOption in presetOptions"
+            :key="presetOption"
             type="button"
-            :class="{ 'is-active': selectedPreset === preset }"
-            @click="selectedPreset = preset"
+            :class="{ 'is-active': preset === presetOption }"
+            @click="settingsStore.setPreset(presetOption)"
           >
-            {{ preset }}
+            {{ presetOption }}
           </button>
         </div>
 
         <div class="preset-note">
           <Volume2 :stroke-width="1.8" />
           <div>
-            <strong>{{ selectedPreset }}</strong>
+            <strong>{{ preset }}</strong>
             <span>{{ presetDescription }}</span>
           </div>
         </div>
@@ -411,7 +444,7 @@ function handleLogout() {
             <small>当前 {{ tuningStrength }}%</small>
           </div>
           <input
-            v-model="tuningStrength"
+            v-model.number="tuningStrength"
             class="settings-range"
             :style="{ '--settings-progress': `${tuningStrength}%` }"
             type="range"
@@ -439,11 +472,11 @@ function handleLogout() {
           </div>
           <div class="settings-segment">
             <button
-              v-for="option in themeOptions"
-              :key="option"
-              type="button"
-              :class="{ 'is-active': selectedTheme === option }"
-              @click="selectedTheme = option"
+            v-for="option in themeOptions"
+            :key="option"
+            type="button"
+              :class="{ 'is-active': theme === option }"
+              @click="settingsStore.setTheme(option)"
             >
               {{ option }}
             </button>
@@ -455,13 +488,13 @@ function handleLogout() {
           :key="setting.title"
           class="setting-line"
           type="button"
-          @click="toggleSetting(setting)"
+          @click="settingsStore.toggleSetting(setting.key)"
         >
           <span class="setting-line__copy">
             <strong>{{ setting.title }}</strong>
             <small>{{ setting.description }}</small>
           </span>
-          <span class="settings-switch" :class="{ 'is-on': setting.enabled }" aria-hidden="true"></span>
+          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
         </button>
 
         <div class="setting-line setting-line--range">
@@ -470,7 +503,7 @@ function handleLogout() {
             <small>{{ blurStrength }}%</small>
           </div>
           <input
-            v-model="blurStrength"
+            v-model.number="blurStrength"
             class="settings-range"
             :style="{ '--settings-progress': `${blurStrength}%` }"
             type="range"
@@ -487,11 +520,11 @@ function handleLogout() {
           </div>
           <div class="settings-segment">
             <button
-              v-for="option in fontSizeOptions"
-              :key="option"
-              type="button"
-              :class="{ 'is-active': selectedFontSize === option }"
-              @click="selectedFontSize = option"
+            v-for="option in fontSizeOptions"
+            :key="option"
+            type="button"
+              :class="{ 'is-active': fontSize === option }"
+              @click="settingsStore.setFontSize(option)"
             >
               {{ option }}
             </button>
@@ -518,7 +551,7 @@ function handleLogout() {
           <small>已用 {{ cacheUsedGb.toFixed(2) }} GB / 共 10 GB</small>
         </div>
 
-        <button class="setting-line setting-line--action" type="button" @click="clearCache">
+        <button class="setting-line setting-line--action" type="button" @click="settingsStore.clearCache">
           <span class="setting-line__copy">
             <strong>缓存设置</strong>
             <small>自动清理 30 天前的缓存文件</small>
@@ -533,7 +566,7 @@ function handleLogout() {
           <span class="select-pill select-pill--static">10 GB</span>
         </div>
 
-        <button class="settings-button settings-button--danger" type="button" @click="clearCache">
+        <button class="settings-button settings-button--danger" type="button" @click="settingsStore.clearCache">
           <Trash2 class="settings-button__icon" :stroke-width="1.9" />
           清理缓存
         </button>
@@ -553,13 +586,13 @@ function handleLogout() {
           :key="setting.title"
           class="setting-line"
           type="button"
-          @click="toggleSetting(setting)"
+          @click="settingsStore.toggleSetting(setting.key)"
         >
           <span class="setting-line__copy">
             <strong>{{ setting.title }}</strong>
             <small>{{ setting.description }}</small>
           </span>
-          <span class="settings-switch" :class="{ 'is-on': setting.enabled }" aria-hidden="true"></span>
+          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
         </button>
 
         <div class="hint-pill">
@@ -581,13 +614,13 @@ function handleLogout() {
           :key="setting.title"
           class="setting-line"
           type="button"
-          @click="toggleSetting(setting)"
+          @click="settingsStore.toggleSetting(setting.key)"
         >
           <span class="setting-line__copy">
             <strong>{{ setting.title }}</strong>
             <small>{{ setting.description }}</small>
           </span>
-          <span class="settings-switch" :class="{ 'is-on': setting.enabled }" aria-hidden="true"></span>
+          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
         </button>
 
         <button class="setting-line setting-line--action" type="button">
@@ -662,8 +695,8 @@ function handleLogout() {
   border: 1px solid rgba(201, 210, 255, 0.13);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02)),
-    rgba(8, 15, 45, 0.58);
-  backdrop-filter: blur(24px);
+    rgba(8, 15, 45, var(--app-glass-alpha));
+  backdrop-filter: blur(var(--app-glass-blur));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     0 16px 42px rgba(5, 7, 26, 0.18);
@@ -815,20 +848,20 @@ function handleLogout() {
 .settings-card--playback {
   background:
     radial-gradient(circle at 4% 12%, rgba(255, 90, 218, 0.14), transparent 30%),
-    rgba(8, 15, 45, 0.58);
+    rgba(8, 15, 45, var(--app-glass-alpha));
 }
 
 .settings-card--quality {
   background:
     radial-gradient(circle at 10% 6%, rgba(98, 122, 255, 0.18), transparent 32%),
-    rgba(8, 15, 45, 0.58);
+    rgba(8, 15, 45, var(--app-glass-alpha));
 }
 
 .settings-card--tuner {
   background:
     radial-gradient(circle at 74% 74%, rgba(217, 72, 255, 0.24), transparent 34%),
     radial-gradient(circle at 28% 16%, rgba(66, 187, 255, 0.12), transparent 28%),
-    rgba(8, 15, 45, 0.62);
+    rgba(8, 15, 45, var(--app-glass-alpha));
 }
 
 .card-heading,
