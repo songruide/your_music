@@ -63,6 +63,11 @@ const routes: Array<RouteRecordRaw> = [
         name: 'favorite-music',
         component: () => import('@/views/FavoriteMusic/index.vue'),
       },
+      {
+        path: 'settings',
+        name: 'settings',
+        component: () => import('@/views/Settings/index.vue'),
+      },
     ],
   },
 ]

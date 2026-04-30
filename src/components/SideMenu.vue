@@ -47,7 +47,7 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
   },
   {
     title: '系统',
-    items: [{ label: '设置', icon: Setting, muted: true }],
+    items: [{ label: '设置', icon: Setting, to: '/settings' }],
   },
 ]
 
