@@ -384,6 +384,10 @@ export const usePlayerStore = defineStore('player', () => {
       return currentIndex.value + 1
     }
 
+    if (automatic && queue.value.length > 0) {
+      return 0
+    }
+
     if (playMode.value === 'list-loop') {
       return 0
     }

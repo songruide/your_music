@@ -159,10 +159,21 @@ function goBack() {
   z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 14%, rgba(7, 8, 30, 0.2) 100%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, transparent 14%, transparent 86%, rgba(255, 255, 255, 0.03) 100%);
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.42) 0 1px, transparent 1.8px),
+    radial-gradient(circle at 46% 10%, rgba(100, 190, 255, 0.46) 0 1px, transparent 1.9px),
+    radial-gradient(circle at 69% 16%, rgba(255, 255, 255, 0.34) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 86% 24%, rgba(174, 124, 255, 0.38) 0 1px, transparent 1.8px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.008) 18%, rgba(0, 5, 22, 0.3) 100%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 0%, transparent 14%, transparent 86%, rgba(255, 255, 255, 0.035) 100%);
+  background-size:
+    280px 220px,
+    360px 260px,
+    420px 300px,
+    520px 340px,
+    auto,
+    auto;
   transform-origin: center center;
-  opacity: 0.72;
+  opacity: 0.74;
 }
 
 .layout::after {
@@ -171,8 +182,10 @@ function goBack() {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background: radial-gradient(circle at center, transparent 54%, rgba(8, 10, 34, 0.26) 100%);
-  opacity: 0.78;
+  background:
+    radial-gradient(ellipse at 54% 18%, rgba(92, 229, 255, 0.18), transparent 28%),
+    radial-gradient(circle at center, transparent 48%, rgba(1, 5, 24, 0.45) 100%);
+  opacity: 0.9;
 }
 
 .layout--immersive::before,
@@ -182,11 +195,11 @@ function goBack() {
 
 .layout__aurora {
   position: absolute;
-  inset: -10% -8%;
+  inset: -18% -12%;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  filter: saturate(1.02);
+  filter: saturate(1.08);
 }
 
 .layout__aurora::before {
@@ -194,32 +207,33 @@ function goBack() {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 14% 48%, rgba(232, 92, 255, 0.18), transparent 18%),
-    radial-gradient(circle at 54% 88%, rgba(65, 156, 255, 0.22), transparent 26%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0%, transparent 16%, transparent 84%, rgba(255, 255, 255, 0.03) 100%);
-  opacity: 0.56;
+    radial-gradient(ellipse at 53% 14%, rgba(74, 221, 255, 0.46), transparent 28%),
+    radial-gradient(ellipse at 64% 26%, rgba(80, 119, 255, 0.28), transparent 34%),
+    radial-gradient(circle at 92% 82%, rgba(227, 67, 225, 0.36), transparent 26%),
+    radial-gradient(circle at 9% 80%, rgba(93, 70, 255, 0.18), transparent 24%);
+  opacity: 0.78;
 }
 
 .layout__aurora::after {
   content: '';
   position: absolute;
-  inset: -6%;
+  inset: -10%;
   background:
-    radial-gradient(circle at 24% 58%, rgba(232, 92, 255, 0.22), transparent 18%),
-    radial-gradient(circle at 52% 76%, rgba(67, 174, 255, 0.2), transparent 20%),
-    radial-gradient(circle at 84% 34%, rgba(118, 102, 255, 0.14), transparent 16%);
-  filter: blur(24px);
-  opacity: 0.36;
+    linear-gradient(104deg, transparent 30%, rgba(78, 215, 255, 0.1) 41%, rgba(124, 115, 255, 0.28) 48%, transparent 61%),
+    linear-gradient(76deg, transparent 38%, rgba(66, 209, 255, 0.22) 47%, rgba(255, 255, 255, 0.08) 51%, transparent 62%),
+    linear-gradient(124deg, transparent 56%, rgba(224, 72, 239, 0.3) 72%, transparent 88%);
+  filter: blur(20px);
+  opacity: 0.74;
   mix-blend-mode: screen;
 }
 
 .light {
   position: absolute;
-  top: -10%;
-  bottom: -10%;
+  top: -18%;
+  bottom: -18%;
   width: 260px;
   border-radius: 999px;
-  filter: blur(92px);
+  filter: blur(96px);
   opacity: 0.16;
   mix-blend-mode: screen;
 }
@@ -260,31 +274,31 @@ function goBack() {
 }
 
 .light--pink {
-  left: -2%;
-  width: 260px;
-  opacity: 0.28;
-  background: linear-gradient(90deg, rgba(228, 95, 255, 0), rgba(228, 95, 255, 0.82) 50%, rgba(228, 95, 255, 0));
+  right: -4%;
+  width: 360px;
+  opacity: 0.34;
+  background: linear-gradient(90deg, rgba(228, 95, 255, 0), rgba(228, 95, 255, 0.78) 50%, rgba(228, 95, 255, 0));
 }
 
 .light--cyan {
-  left: 50%;
-  width: 360px;
-  opacity: 0.28;
-  background: linear-gradient(90deg, rgba(66, 170, 255, 0), rgba(66, 170, 255, 0.74) 50%, rgba(66, 170, 255, 0));
+  left: 44%;
+  width: 420px;
+  opacity: 0.4;
+  background: linear-gradient(90deg, rgba(56, 220, 255, 0), rgba(56, 220, 255, 0.86) 50%, rgba(56, 220, 255, 0));
 }
 
 .light--violet {
-  right: 14%;
-  width: 260px;
-  opacity: 0.18;
-  background: linear-gradient(90deg, rgba(121, 92, 255, 0), rgba(121, 92, 255, 0.52) 50%, rgba(121, 92, 255, 0));
+  right: 20%;
+  width: 300px;
+  opacity: 0.26;
+  background: linear-gradient(90deg, rgba(121, 92, 255, 0), rgba(121, 92, 255, 0.66) 50%, rgba(121, 92, 255, 0));
 }
 
 .light--blue {
-  left: 38%;
-  width: 420px;
+  left: 58%;
+  width: 520px;
   opacity: 0.24;
-  background: linear-gradient(90deg, rgba(34, 132, 255, 0), rgba(34, 132, 255, 0.54) 50%, rgba(34, 132, 255, 0));
+  background: linear-gradient(90deg, rgba(34, 132, 255, 0), rgba(34, 132, 255, 0.66) 50%, rgba(34, 132, 255, 0));
 }
 
 .layout__aside,

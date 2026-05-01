@@ -3,13 +3,14 @@
   font-family: 'Poppins', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   color-scheme: dark;
   --app-bg-outer:
-    radial-gradient(circle at left center, rgba(233, 92, 255, 0.56), transparent 22%),
-    radial-gradient(circle at 50% 100%, rgba(52, 137, 255, 0.34), transparent 28%),
-    linear-gradient(135deg, #1a0d63 0%, #16185a 42%, #101547 100%);
+    radial-gradient(circle at 78% 78%, rgba(184, 55, 214, 0.34), transparent 28%),
+    radial-gradient(circle at 50% 0%, rgba(50, 168, 255, 0.28), transparent 32%),
+    linear-gradient(135deg, #06091e 0%, #0b1234 46%, #07102b 100%);
   --app-panel-bg:
-    radial-gradient(circle at 48% 84%, rgba(80, 176, 255, 0.32), transparent 22%),
-    radial-gradient(circle at 12% 50%, rgba(226, 88, 255, 0.28), transparent 16%),
-    linear-gradient(135deg, rgba(82, 18, 150, 0.94) 0%, rgba(52, 20, 126, 0.97) 28%, rgba(29, 34, 111, 0.98) 58%, rgba(16, 23, 78, 0.99) 100%);
+    radial-gradient(ellipse at 56% 22%, rgba(67, 217, 255, 0.34), transparent 30%),
+    radial-gradient(circle at 87% 78%, rgba(206, 63, 236, 0.32), transparent 26%),
+    radial-gradient(circle at 13% 72%, rgba(111, 74, 255, 0.16), transparent 24%),
+    linear-gradient(135deg, rgba(6, 9, 31, 0.98) 0%, rgba(9, 17, 47, 0.99) 45%, rgba(5, 12, 37, 1) 100%);
   --app-surface:
     linear-gradient(180deg, rgba(98, 30, 170, 0.96), rgba(56, 12, 118, 0.98));
   --app-player:
