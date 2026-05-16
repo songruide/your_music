@@ -16,7 +16,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() ?? ''
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Object.prototype.toString.call(value) === '[object Object]'
 }
-
+//统一处理参数问题
 function buildUrl(path: string, params?: Record<string, QueryValue>) {
   const url = new URL(path, API_BASE_URL || window.location.origin)
 
@@ -34,7 +34,7 @@ function buildUrl(path: string, params?: Record<string, QueryValue>) {
 
   return API_BASE_URL ? url.toString() : `${url.pathname}${url.search}`
 }
-
+//统一处理post请求的请求体的参数
 function resolveBody(body: unknown, headers: Headers): BodyInit | null | undefined {
   if (body == null) {
     return body as null | undefined
@@ -95,7 +95,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   const payload = (await readJsonPayload<unknown>(response, path)) as unknown
-
+//处理错误
   if (!response.ok) {
     if (isApiEnvelope(payload) && payload.message) {
       throw new Error(payload.message)

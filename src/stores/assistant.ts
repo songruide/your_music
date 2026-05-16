@@ -3,9 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { requestAssistantReply, streamAssistantReply } from '@/api/ai'
 import { useAuthStore } from '@/stores/auth'
 import { usePlayerStore } from '@/stores/player'
+import { useSettingsStore } from '@/stores/settings'
 import type {
   AssistantActionPayload,
   AssistantConversationContext,
+  AssistantDiagnostics,
   AssistantRequestPayload,
   AssistantResponsePayload,
   AssistantRouteContext,
@@ -24,6 +26,7 @@ const MAX_STORED_ACTION_SONGS = 12
 export interface AssistantUiMessage {
   action?: AssistantActionPayload
   createdAt: number
+  diagnostics?: AssistantDiagnostics | null
   id: string
   role: 'user' | 'assistant'
   source?: 'model' | 'fallback'
@@ -206,6 +209,31 @@ function normalizeStoredAction(value: unknown): AssistantActionPayload | undefin
   }
 }
 
+function normalizeStoredDiagnostics(value: unknown): AssistantDiagnostics | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const diagnostics = value as Partial<AssistantDiagnostics>
+  const fallbackReason =
+    diagnostics.fallbackReason === 'missing_credentials' || diagnostics.fallbackReason === 'model_error'
+      ? diagnostics.fallbackReason
+      : undefined
+
+  if (!fallbackReason) {
+    return null
+  }
+
+  return {
+    fallbackReason,
+    model: sanitizeOptionalText(diagnostics.model),
+    modelBaseUrl: sanitizeOptionalText(diagnostics.modelBaseUrl),
+    modelError: sanitizeOptionalText(diagnostics.modelError),
+    modelStage: sanitizeOptionalText(diagnostics.modelStage),
+    modelStatus: sanitizeNumber(diagnostics.modelStatus),
+  }
+}
+
 function normalizeStoredMessage(value: unknown): AssistantUiMessage | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -226,6 +254,7 @@ function normalizeStoredMessage(value: unknown): AssistantUiMessage | null {
   return {
     action: normalizeStoredAction(message.action),
     createdAt,
+    diagnostics: normalizeStoredDiagnostics(message.diagnostics),
     id,
     role,
     source,
@@ -297,6 +326,7 @@ function getPersistableMessages(sourceMessages: AssistantUiMessage[]) {
 export const useAssistantStore = defineStore('assistant', () => {
   const authStore = useAuthStore()
   const playerStore = usePlayerStore()
+  const settingsStore = useSettingsStore()
   const payload = ref<AssistantStoragePayload>(normalizePayload(readJson(ASSISTANT_STORAGE_KEY, {})))
   const error = ref('')
   const isPanelOpen = ref(false)
@@ -305,6 +335,8 @@ export const useAssistantStore = defineStore('assistant', () => {
   let activeAbortController: AbortController | null = null
 
   const hasMessages = computed(() => messages.value.length > 0)
+  const isAssistantEnabled = computed(() => settingsStore.isAssistantEnabled)
+  const isSmartRecommendEnabled = computed(() => settingsStore.toggles.aiSmartRecommend)
   const currentUserKey = computed(() => {
     if (authStore.loggedIn && authStore.profile?.userId) {
       return `user:${authStore.profile.userId}`
@@ -347,6 +379,11 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function openPanel() {
+    if (!isAssistantEnabled.value) {
+      error.value = 'AI 助手已在设置中关闭'
+      return
+    }
+
     isPanelOpen.value = true
   }
 
@@ -355,6 +392,11 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function togglePanel() {
+    if (!isPanelOpen.value && !isAssistantEnabled.value) {
+      error.value = 'AI 助手已在设置中关闭'
+      return
+    }
+
     isPanelOpen.value = !isPanelOpen.value
   }
 
@@ -427,6 +469,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
 
     targetMessage.action = payloadValue.action
+    targetMessage.diagnostics = payloadValue.diagnostics
     targetMessage.source = payloadValue.source
     targetMessage.status = 'done'
     targetMessage.text = payloadValue.reply
@@ -478,6 +521,11 @@ export const useAssistantStore = defineStore('assistant', () => {
     const content = text.trim()
 
     if (!content || isSending.value) {
+      return
+    }
+
+    if (!isAssistantEnabled.value) {
+      error.value = 'AI 助手已在设置中关闭'
       return
     }
 
@@ -589,6 +637,23 @@ export const useAssistantStore = defineStore('assistant', () => {
     { immediate: true },
   )
 
+  watch(
+    isAssistantEnabled,
+    (enabled) => {
+      if (enabled) {
+        if (error.value === 'AI 助手已在设置中关闭') {
+          error.value = ''
+        }
+
+        return
+      }
+
+      stopCurrentResponse()
+      isPanelOpen.value = false
+      error.value = 'AI 助手已在设置中关闭'
+    },
+  )
+
   return {
     clearMessages,
     closePanel,
@@ -596,8 +661,10 @@ export const useAssistantStore = defineStore('assistant', () => {
     enqueueResolvedSong,
     error,
     hasMessages,
+    isAssistantEnabled,
     isPanelOpen,
     isSending,
+    isSmartRecommendEnabled,
     messages,
     openPanel,
     playResolvedSong,

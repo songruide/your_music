@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Clock3, LogIn, Play, Trash2 } from 'lucide-vue-next'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import type { SongCommentSeed } from '@/api/comment'
 import { getRecentPlaybackSongs } from '@/api/player'
 import SongCommentsDialog from '@/components/comments/SongCommentsDialog.vue'
@@ -15,7 +15,6 @@ import { buildArtistRoute } from '@/utils/artistRoute'
 import RecentTrackRow from './components/RecentTrackRow.vue'
 
 const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
 const playerStore = usePlayerStore()
@@ -28,7 +27,6 @@ const isLoading = ref(false)
 const loadError = ref('')
 const dismissedTrackMap = ref<Record<string, number>>({})
 const activeSource = ref<'cloud' | 'queue'>('queue')
-const isImmersivePage = computed(() => route.name === 'mini-player')
 const activeSong = ref<SongCommentSeed | null>(null)
 const songCommentsVisible = ref(false)
 
@@ -168,6 +166,8 @@ function toPlayerTrack(track: RecentPlayerTrack): PlayerTrack {
     duration: track.duration,
     durationMs: track.durationMs,
     audioUrl: track.audioUrl,
+    localAudioPath: track.localAudioPath,
+    localLyricPath: track.localLyricPath,
     sourceMeta: track.sourceMeta,
     sourceExpiresAt: track.sourceExpiresAt,
   }
@@ -205,6 +205,8 @@ const visibleTracks = computed(() => {
     .map((track) => ({
       ...track,
       isFavorite: libraryStore.isFavorite(track.id),
+      isDownloaded: libraryStore.isLocalTrack(track.id),
+      isDownloading: libraryStore.isDownloadingTrack(track.id),
     }))
 })
 
@@ -322,7 +324,7 @@ function handlePlayNext(track: RecentPlayerTrack) {
 }
 
 function handleDownloadTrack(track: RecentPlayerTrack) {
-  libraryStore.addLocalTrack(toPlayerTrack(track))
+  libraryStore.downloadLocalTrack(toPlayerTrack(track))
 }
 
 function handleShowComments(track: RecentPlayerTrack) {
@@ -378,41 +380,11 @@ watch(
   },
   { immediate: true },
 )
-
-watch(
-  () => route.name,
-  (routeName) => {
-    if (routeName === 'mini-player') {
-      if (currentTrack.value) {
-        playerStore.openDetail()
-      }
-      return
-    }
-
-    playerStore.closeDetail()
-  },
-  { immediate: true },
-)
-
-watch(
-  () => currentTrack.value?.id,
-  (trackId) => {
-    if (isImmersivePage.value && trackId) {
-      playerStore.openDetail()
-    }
-  },
-)
-
-onBeforeUnmount(() => {
-  if (isImmersivePage.value) {
-    playerStore.closeDetail()
-  }
-})
 </script>
 
 <template>
-  <section class="recent-page" :class="{ 'recent-page--immersive': isImmersivePage }">
-    <div class="recent-shell" :class="{ 'recent-shell--immersive': isImmersivePage }">
+  <section class="recent-page">
+    <div class="recent-shell">
       <span class="recent-shell__glow recent-shell__glow--pink"></span>
       <span class="recent-shell__glow recent-shell__glow--blue"></span>
 
@@ -506,10 +478,6 @@ onBeforeUnmount(() => {
   color: #fff;
 }
 
-.recent-page--immersive {
-  min-height: 100dvh;
-}
-
 .recent-shell,
 .recent-board {
   position: relative;
@@ -530,13 +498,6 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 20px 38px rgba(9, 7, 32, 0.18);
-}
-
-.recent-shell--immersive {
-  border-radius: 0;
-  padding: 20px 24px;
-  background: var(--app-panel-bg);
-  box-shadow: none;
 }
 
 .recent-shell::before {

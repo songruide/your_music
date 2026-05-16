@@ -69,6 +69,7 @@
               <SongRowActions
                 :disabled="item.playable === false"
                 :is-downloaded="isLocalSong(item.id)"
+                :is-downloading="isDownloadingSong(item.id)"
                 :is-favorite="isFavoriteSong(item.id)"
                 show-comments
                 @comments="openSongComments(item)"
@@ -148,7 +149,7 @@ function downloadSong(song: HomeSong) {
     return
   }
 
-  libraryStore.addLocalTrack(mapSongToPlayerTrack(song))
+  libraryStore.downloadLocalTrack(mapSongToPlayerTrack(song))
 }
 
 function toggleFavoriteSong(song: HomeSong) {
@@ -173,6 +174,10 @@ function isFavoriteSong(songId: string) {
 
 function isLocalSong(songId: string) {
   return libraryStore.isLocalTrack(songId)
+}
+
+function isDownloadingSong(songId: string) {
+  return libraryStore.isDownloadingTrack(songId)
 }
 
 // 首页热门歌曲的结构和播放器队列结构并不一致，

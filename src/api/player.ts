@@ -35,6 +35,34 @@ export interface SongMetaPayload {
   coverUrl?: string
 }
 
+export interface DownloadTrackPayload {
+  album?: string
+  artist: string
+  artists?: ArtistRef[]
+  coverUrl?: string
+  duration?: string
+  durationMs?: number
+  id: string
+  title: string
+}
+
+export interface DownloadSongRequest {
+  directory: string
+  includeLyrics: boolean
+  level: string
+  nameFormat: string
+  track: DownloadTrackPayload
+}
+
+export interface DownloadSongPayload {
+  audioPath: string
+  bitrate?: number
+  fileName: string
+  level?: string
+  lyricPath?: string
+  type: string
+}
+
 export function getSongPlaybackSource(id: string, level = 'standard') {
   return request<SongPlaybackSource>('/api/player/song-url', {
     params: {
@@ -65,5 +93,12 @@ export function getRecentPlaybackSongs(limit = 40) {
     params: {
       limit,
     },
+  })
+}
+
+export function downloadSong(payload: DownloadSongRequest) {
+  return request<DownloadSongPayload>('/api/player/download', {
+    method: 'POST',
+    body: { ...payload },
   })
 }

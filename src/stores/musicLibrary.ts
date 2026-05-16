@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
+import { downloadSong } from '@/api/player'
+import { getSongLevelForQuality } from '@/utils/audioQuality'
 import { useAuthStore } from './auth'
+import { useSettingsStore } from './settings'
 import type { PlayerTrack, RecentPlayerTrack } from './player/types'
 import type { ArtistRef } from '@/types/music'
 
@@ -85,9 +88,20 @@ function clonePlayerTrack(track: PlayerTrack): PlayerTrack {
     duration: track.duration,
     durationMs: track.durationMs,
     audioUrl: track.audioUrl,
+    localAudioPath: track.localAudioPath,
+    localLyricPath: track.localLyricPath,
     sourceMeta: track.sourceMeta ? { ...track.sourceMeta } : undefined,
     sourceExpiresAt: track.sourceExpiresAt,
   }
+}
+
+type DownloadTaskStatus = 'done' | 'downloading' | 'error' | 'queued'
+
+export interface LibraryDownloadTask {
+  error?: string
+  fileName?: string
+  status: DownloadTaskStatus
+  trackId: string
 }
 
 function normalizeTrackArtists(value: unknown, fallbackArtistLabel: string): ArtistRef[] {
@@ -147,6 +161,8 @@ function normalizeStoredTrack(value: unknown): StoredLibraryTrack | null {
     duration: track.duration ? String(track.duration) : '00:00',
     durationMs: Number.isFinite(track.durationMs) ? Number(track.durationMs) : undefined,
     audioUrl: track.audioUrl ? String(track.audioUrl) : undefined,
+    localAudioPath: track.localAudioPath ? String(track.localAudioPath) : undefined,
+    localLyricPath: track.localLyricPath ? String(track.localLyricPath) : undefined,
     sourceMeta: track.sourceMeta ? { ...track.sourceMeta } : undefined,
     sourceExpiresAt: Number.isFinite(track.sourceExpiresAt) ? Number(track.sourceExpiresAt) : undefined,
     downloadedAt: Number.isFinite(track.downloadedAt) ? Number(track.downloadedAt) : undefined,
@@ -347,11 +363,16 @@ function toLocalMusicTrack(
 
 export const useMusicLibraryStore = defineStore('music-library', () => {
   const authStore = useAuthStore()
+  const settingsStore = useSettingsStore()
   const payload = ref<LibraryStoragePayload>(normalizePayload(readJson(LIBRARY_STORAGE_KEY, {})))
   const downloadedTracks = ref<StoredLibraryTrack[]>([])
   const favoriteTracks = ref<StoredLibraryTrack[]>([])
   const legacyPlayerFavoritesMigrated = ref(false)
+  const downloadTasks = ref<Record<string, LibraryDownloadTask>>({})
   const persistenceError = ref('')
+  const downloadQueue: PlayerTrack[] = []
+  const queuedTrackIds = new Set<string>()
+  let activeDownloadCount = 0
 
   const currentUserKey = computed(() => {
     if (authStore.loggedIn && authStore.profile?.userId) {
@@ -509,6 +530,17 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
     return Boolean(trackId && downloadedTracks.value.some((track) => track.id === trackId))
   }
 
+  function isDownloadingTrack(trackId?: string) {
+    return Boolean(trackId && ['downloading', 'queued'].includes(downloadTasks.value[trackId]?.status ?? ''))
+  }
+
+  function setDownloadTask(task: LibraryDownloadTask) {
+    downloadTasks.value = {
+      ...downloadTasks.value,
+      [task.trackId]: task,
+    }
+  }
+
   function toggleFavorite(trackOrId: PlayerTrack | LocalMusicTrack | string) {
     const trackId = typeof trackOrId === 'string' ? trackOrId : trackOrId.id
 
@@ -546,6 +578,110 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
     return downloadedTracks.value[0] ?? null
   }
 
+  function buildDownloadTrack(track: PlayerTrack) {
+    return {
+      album: track.album,
+      artist: track.artist,
+      artists: track.artists?.map((artist) => ({ ...artist })),
+      coverUrl: track.coverUrl,
+      duration: track.duration,
+      durationMs: track.durationMs,
+      id: track.id,
+      title: track.title,
+    }
+  }
+
+  async function runDownloadTask(track: PlayerTrack) {
+    activeDownloadCount += 1
+    setDownloadTask({
+      status: 'downloading',
+      trackId: track.id,
+    })
+
+    try {
+      const result = await downloadSong({
+        directory: settingsStore.downloadDir,
+        includeLyrics: Boolean(settingsStore.toggles.downloadLyrics),
+        level: getSongLevelForQuality(settingsStore.quality),
+        nameFormat: settingsStore.nameFormat,
+        track: buildDownloadTrack(track),
+      })
+      const nextTrack: PlayerTrack = {
+        ...track,
+        audioUrl: `/api/player/local-file?${new URLSearchParams({
+          id: track.id,
+          path: result.audioPath,
+        }).toString()}`,
+        localAudioPath: result.audioPath,
+        localLyricPath: result.lyricPath,
+        sourceMeta: {
+          ...(track.sourceMeta ?? {}),
+          bitrate: result.bitrate,
+          level: result.level,
+          sourceMode: 'local-download',
+          type: result.type,
+        },
+        sourceExpiresAt: undefined,
+      }
+
+      addLocalTrack(nextTrack)
+      setDownloadTask({
+        fileName: result.fileName,
+        status: 'done',
+        trackId: track.id,
+      })
+    } catch (error) {
+      setDownloadTask({
+        error: error instanceof Error ? error.message : '下载失败',
+        status: 'error',
+        trackId: track.id,
+      })
+    } finally {
+      activeDownloadCount = Math.max(0, activeDownloadCount - 1)
+      runNextDownloadTasks()
+    }
+  }
+
+  function runNextDownloadTasks() {
+    const limit = Math.max(Number(settingsStore.downloadTaskCount) || 1, 1)
+
+    while (activeDownloadCount < limit && downloadQueue.length > 0) {
+      const nextTrack = downloadQueue.shift()
+
+      if (!nextTrack) {
+        break
+      }
+
+      queuedTrackIds.delete(nextTrack.id)
+      void runDownloadTask(nextTrack)
+    }
+  }
+
+  function downloadLocalTrack(track: PlayerTrack) {
+    if (!track.id || isDownloadingTrack(track.id)) {
+      return
+    }
+
+    if (isLocalTrack(track.id)) {
+      setDownloadTask({
+        status: 'done',
+        trackId: track.id,
+      })
+      return
+    }
+
+    if (!queuedTrackIds.has(track.id)) {
+      queuedTrackIds.add(track.id)
+      downloadQueue.push(track)
+    }
+
+    setDownloadTask({
+      status: 'queued',
+      trackId: track.id,
+    })
+    runNextDownloadTasks()
+  }
+
   function removeLocalTrack(trackId: string) {
     if (!trackId) {
       return
@@ -578,10 +714,13 @@ export const useMusicLibraryStore = defineStore('music-library', () => {
     clearFavoriteTracks,
     clearLocalTracks,
     currentUserKey,
+    downloadLocalTrack,
+    downloadTasks,
     downloadedCollection,
     favoriteCollection,
     favoriteTracks,
     isFavorite,
+    isDownloadingTrack,
     isLocalTrack,
     markLocalTrackPlayed,
     persistenceError,

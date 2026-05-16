@@ -4,6 +4,7 @@ import { Download, Heart, ListPlus, MessageSquareMore, Play } from 'lucide-vue-n
 defineProps<{
   disabled?: boolean
   isDownloaded?: boolean
+  isDownloading?: boolean
   isFavorite?: boolean
   showComments?: boolean
 }>()
@@ -43,11 +44,11 @@ const emit = defineEmits<{
 
     <button
       class="song-action song-action--on-hover"
-      :class="{ 'song-action--downloaded': isDownloaded }"
+      :class="{ 'song-action--downloaded': isDownloaded || isDownloading }"
       type="button"
-      :title="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
-      :aria-label="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
-      :disabled="disabled"
+      :title="isDownloaded ? '已在本地音乐' : isDownloading ? '下载中...' : '下载到本地音乐'"
+      :aria-label="isDownloaded ? '已在本地音乐' : isDownloading ? '下载中...' : '下载到本地音乐'"
+      :disabled="disabled || isDownloading"
       @click.stop="emit('download')"
     >
       <Download :stroke-width="2" />

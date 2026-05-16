@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getSongPlaybackSource, type SongPlaybackSource } from '@/api/player'
+import { useSettingsStore } from '@/stores/settings'
+import { getSongLevelForQuality } from '@/utils/audioQuality'
 import { throttle } from '@/utils/timing'
 import {
   applyAudioVolume,
@@ -31,6 +33,7 @@ import {
 export type { PlayerTrack, PlayerTrackSourceMeta, RecentPlayerTrack } from './player/types'
 
 export const usePlayerStore = defineStore('player', () => {
+  const settingsStore = useSettingsStore()
   const currentTrack = ref<PlayerTrack | null>(null)
   const currentTimeSeconds = ref(0)
   const durationSeconds = ref(0)
@@ -200,7 +203,9 @@ export const usePlayerStore = defineStore('player', () => {
         continue
       }
 
-      sourceCache.set(track.id, {
+      const level = track.sourceMeta?.level ?? getSongLevelForQuality(settingsStore.quality)
+
+      sourceCache.set(`${track.id}:${level}`, {
         url: track.audioUrl,
         expiresAt: track.sourceExpiresAt,
       })
@@ -437,6 +442,22 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function resolveTrackSource(track: PlayerTrack) {
+    if (track.localAudioPath) {
+      const params = new URLSearchParams({
+        id: track.id,
+        path: track.localAudioPath,
+      })
+      const localUrl = `/api/player/local-file?${params.toString()}`
+
+      track.audioUrl = localUrl
+      delete track.sourceExpiresAt
+
+      return {
+        expiresAt: undefined,
+        url: localUrl,
+      }
+    }
+
     if (track.audioUrl && !isSourceExpired(track.sourceExpiresAt)) {
       return {
         expiresAt: track.sourceExpiresAt,
@@ -444,7 +465,8 @@ export const usePlayerStore = defineStore('player', () => {
       }
     }
 
-    const cachedSource = sourceCache.get(track.id)
+    const preferredLevel = getSongLevelForQuality(settingsStore.quality)
+    const cachedSource = sourceCache.get(`${track.id}:${preferredLevel}`)
 
     if (cachedSource && !isSourceExpired(cachedSource.expiresAt)) {
       track.audioUrl = cachedSource.url
@@ -453,14 +475,14 @@ export const usePlayerStore = defineStore('player', () => {
       return cachedSource
     }
 
-    const source = await getSongPlaybackSource(track.id)
+    const source = await getSongPlaybackSource(track.id, preferredLevel)
     const expiresAt = source.expiresIn ? Date.now() + source.expiresIn * 1000 : undefined
 
     track.audioUrl = source.streamUrl ?? source.url
     assignSourceMeta(track, source)
     track.sourceExpiresAt = expiresAt
 
-    sourceCache.set(track.id, {
+    sourceCache.set(`${track.id}:${source.level ?? preferredLevel}`, {
       url: track.audioUrl,
       expiresAt,
     })

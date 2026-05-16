@@ -1,10 +1,10 @@
 import path from 'node:path'
-import { defineConfig } from 'vite'
+import { defineConfig, type Connect, type PreviewServer, type ViteDevServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import apiApp from './src/server/index.js'
 
-function attachApiMiddleware(server: { middlewares: { use: (handler: unknown) => void } }) {
-  server.middlewares.use(apiApp)
+function attachApiMiddleware(server: ViteDevServer | PreviewServer) {
+  server.middlewares.use(apiApp as Connect.HandleFunction)
 }
 
 export default defineConfig({

@@ -4,7 +4,6 @@ import { computed, ref, watch } from 'vue'
 const SETTINGS_STORAGE_KEY = 'your-music:settings:v1'
 const SETTINGS_STORAGE_VERSION = 1
 
-export const PLAY_COMPLETION_ACTIONS = ['停止播放', '播放相似', '列表循环'] as const
 export const QUALITY_OPTIONS = ['智能推荐', '无损优先', '标准'] as const
 export const THEME_OPTIONS = ['跟随系统', '浅色', '深色', '夜航极光'] as const
 export const FONT_SIZE_OPTIONS = ['A-', '标准', 'A+'] as const
@@ -12,7 +11,6 @@ export const PRESET_OPTIONS = ['深夜', '通勤', '专注', '流行', '摇滚']
 export const DOWNLOAD_TASK_OPTIONS = ['1', '3', '5'] as const
 export const NAME_FORMAT_OPTIONS = ['歌手 - 歌曲名', '歌曲名 - 歌手', '专辑/歌曲名'] as const
 
-export type PlayCompletionAction = (typeof PLAY_COMPLETION_ACTIONS)[number]
 export type QualityOption = (typeof QUALITY_OPTIONS)[number]
 export type ThemeOption = (typeof THEME_OPTIONS)[number]
 export type FontSizeOption = (typeof FONT_SIZE_OPTIONS)[number]
@@ -21,8 +19,6 @@ export type DownloadTaskOption = (typeof DOWNLOAD_TASK_OPTIONS)[number]
 export type NameFormatOption = (typeof NAME_FORMAT_OPTIONS)[number]
 
 export type BooleanSettingKey =
-  | 'volumeNormalization'
-  | 'autoSimilarSongs'
   | 'downloadLyrics'
   | 'dynamicBackground'
   | 'aiSmartRecommend'
@@ -35,10 +31,8 @@ export type BooleanSettingKey =
 type SettingsSnapshot = {
   blurStrength: number
   cacheUsedGb: number
-  completionAction: PlayCompletionAction
   downloadDir: string
   downloadTaskCount: DownloadTaskOption
-  fadeSeconds: number
   fontSize: FontSizeOption
   nameFormat: NameFormatOption
   preset: PresetOption
@@ -54,8 +48,6 @@ type SettingsStoragePayload = SettingsSnapshot & {
 }
 
 const DEFAULT_TOGGLES: Record<BooleanSettingKey, boolean> = {
-  volumeNormalization: true,
-  autoSimilarSongs: true,
   downloadLyrics: true,
   dynamicBackground: true,
   aiSmartRecommend: true,
@@ -69,10 +61,8 @@ const DEFAULT_TOGGLES: Record<BooleanSettingKey, boolean> = {
 const DEFAULT_SETTINGS: SettingsSnapshot = {
   blurStrength: 60,
   cacheUsedGb: 2.35,
-  completionAction: '停止播放',
   downloadDir: 'D:\\YourMusic\\Downloads',
   downloadTaskCount: '3',
-  fadeSeconds: 4,
   fontSize: '标准',
   nameFormat: '歌手 - 歌曲名',
   preset: '深夜',
@@ -152,12 +142,10 @@ function normalizeSnapshot(value: unknown): SettingsSnapshot {
   return {
     blurStrength: clamp(source.blurStrength, 20, 100, DEFAULT_SETTINGS.blurStrength),
     cacheUsedGb: clamp(source.cacheUsedGb, 0, 10, DEFAULT_SETTINGS.cacheUsedGb),
-    completionAction: pickOption(source.completionAction, PLAY_COMPLETION_ACTIONS, DEFAULT_SETTINGS.completionAction),
     downloadDir: typeof source.downloadDir === 'string' && source.downloadDir.trim()
       ? source.downloadDir.trim()
       : DEFAULT_SETTINGS.downloadDir,
     downloadTaskCount: pickOption(source.downloadTaskCount, DOWNLOAD_TASK_OPTIONS, DEFAULT_SETTINGS.downloadTaskCount),
-    fadeSeconds: clamp(source.fadeSeconds, 0, 8, DEFAULT_SETTINGS.fadeSeconds),
     fontSize: pickOption(source.fontSize, FONT_SIZE_OPTIONS, DEFAULT_SETTINGS.fontSize),
     nameFormat: pickOption(source.nameFormat, NAME_FORMAT_OPTIONS, DEFAULT_SETTINGS.nameFormat),
     preset: pickOption(source.preset, PRESET_OPTIONS, DEFAULT_SETTINGS.preset),
@@ -189,10 +177,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const blurStrength = ref(initialSettings.blurStrength)
   const cacheUsedGb = ref(initialSettings.cacheUsedGb)
-  const completionAction = ref<PlayCompletionAction>(initialSettings.completionAction)
   const downloadDir = ref(initialSettings.downloadDir)
   const downloadTaskCount = ref<DownloadTaskOption>(initialSettings.downloadTaskCount)
-  const fadeSeconds = ref(initialSettings.fadeSeconds)
   const fontSize = ref<FontSizeOption>(initialSettings.fontSize)
   const nameFormat = ref<NameFormatOption>(initialSettings.nameFormat)
   const preset = ref<PresetOption>(initialSettings.preset)
@@ -202,13 +188,16 @@ export const useSettingsStore = defineStore('settings', () => {
   const tuningStrength = ref(initialSettings.tuningStrength)
 
   const cachePercent = computed(() => Math.min(Math.round((cacheUsedGb.value / 10) * 100), 100))
+  const isAssistantEnabled = computed(() => (
+    toggles.value.aiSmartRecommend ||
+    toggles.value.aiPlaylistGeneration ||
+    toggles.value.aiSongInsight
+  ))
   const snapshot = computed<SettingsSnapshot>(() => ({
     blurStrength: blurStrength.value,
     cacheUsedGb: cacheUsedGb.value,
-    completionAction: completionAction.value,
     downloadDir: downloadDir.value,
     downloadTaskCount: downloadTaskCount.value,
-    fadeSeconds: fadeSeconds.value,
     fontSize: fontSize.value,
     nameFormat: nameFormat.value,
     preset: preset.value,
@@ -240,10 +229,6 @@ export const useSettingsStore = defineStore('settings', () => {
     root.style.setProperty('--app-font-scale', resolveFontScale(fontSize.value))
   }
 
-  function setCompletionAction(nextValue: PlayCompletionAction) {
-    completionAction.value = nextValue
-  }
-
   function setDownloadTaskCount(nextValue: DownloadTaskOption) {
     downloadTaskCount.value = nextValue
   }
@@ -256,10 +241,6 @@ export const useSettingsStore = defineStore('settings', () => {
     }
 
     downloadDir.value = safeValue
-  }
-
-  function setFadeSeconds(nextValue: number) {
-    fadeSeconds.value = clamp(nextValue, 0, 8, DEFAULT_SETTINGS.fadeSeconds)
   }
 
   function setFontSize(nextValue: FontSizeOption) {
@@ -304,10 +285,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function resetAllSettings() {
     blurStrength.value = DEFAULT_SETTINGS.blurStrength
-    completionAction.value = DEFAULT_SETTINGS.completionAction
     downloadDir.value = DEFAULT_SETTINGS.downloadDir
     downloadTaskCount.value = DEFAULT_SETTINGS.downloadTaskCount
-    fadeSeconds.value = DEFAULT_SETTINGS.fadeSeconds
     fontSize.value = DEFAULT_SETTINGS.fontSize
     nameFormat.value = DEFAULT_SETTINGS.nameFormat
     preset.value = DEFAULT_SETTINGS.preset
@@ -325,20 +304,17 @@ export const useSettingsStore = defineStore('settings', () => {
     cachePercent,
     cacheUsedGb,
     clearCache,
-    completionAction,
     downloadDir,
     downloadTaskCount,
-    fadeSeconds,
     fontSize,
+    isAssistantEnabled,
     nameFormat,
     preset,
     quality,
     resetAllSettings,
     resetTuning,
-    setCompletionAction,
     setDownloadDir,
     setDownloadTaskCount,
-    setFadeSeconds,
     setFontSize,
     setNameFormat,
     setPreset,

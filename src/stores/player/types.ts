@@ -24,6 +24,8 @@ export interface PlayerTrack {
   duration: string
   durationMs?: number
   audioUrl?: string
+  localAudioPath?: string
+  localLyricPath?: string
   sourceMeta?: PlayerTrackSourceMeta
   sourceExpiresAt?: number
 }

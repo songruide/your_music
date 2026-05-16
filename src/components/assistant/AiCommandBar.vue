@@ -4,7 +4,7 @@ import AiSparkIcon from '@/components/assistant/AiSparkIcon.vue'
 import { useAssistantStore } from '@/stores/assistant'
 
 const assistantStore = useAssistantStore()
-const { isPanelOpen, isSending } = storeToRefs(assistantStore)
+const { isAssistantEnabled, isPanelOpen, isSending } = storeToRefs(assistantStore)
 
 function handleOpen() {
   assistantStore.openPanel()
@@ -16,15 +16,20 @@ function handleOpen() {
     class="assistant-entry"
     :class="{
       'assistant-entry--active': isPanelOpen,
+      'assistant-entry--disabled': !isAssistantEnabled,
       'assistant-entry--sending': isSending,
     }"
     type="button"
-    aria-label="AI 点歌"
-    title="AI 点歌"
+    :aria-disabled="!isAssistantEnabled"
+    :aria-label="isAssistantEnabled ? 'AI 点歌' : 'AI 助手已关闭'"
+    :disabled="!isAssistantEnabled"
+    :title="isAssistantEnabled ? 'AI 点歌' : 'AI 助手已在设置中关闭'"
     @click="handleOpen"
   >
     <AiSparkIcon class="assistant-entry__icon" />
-    <span class="assistant-entry__tooltip" role="tooltip">AI 点歌</span>
+    <span class="assistant-entry__tooltip" role="tooltip">
+      {{ isAssistantEnabled ? 'AI 点歌' : 'AI 已关闭' }}
+    </span>
   </button>
 </template>
 
@@ -66,6 +71,16 @@ function handleOpen() {
 
 .assistant-entry--sending .assistant-entry__icon {
   animation: assistant-entry-pulse 1s ease-in-out infinite;
+}
+
+.assistant-entry--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.assistant-entry--disabled:hover,
+.assistant-entry--disabled:focus-visible {
+  transform: none;
 }
 
 .assistant-entry__icon {

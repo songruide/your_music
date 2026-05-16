@@ -34,6 +34,10 @@ function isLocalSong(songId: string) {
   return libraryStore.isLocalTrack(songId)
 }
 
+function isDownloadingSong(songId: string) {
+  return libraryStore.isDownloadingTrack(songId)
+}
+
 function buildFavoriteTrack(song: SearchSong) {
   return buildPlayerTrack({
     id: song.id,
@@ -64,7 +68,7 @@ function handleDownloadSong(song: SearchSong) {
     return
   }
 
-  libraryStore.addLocalTrack(buildFavoriteTrack(song))
+  libraryStore.downloadLocalTrack(buildFavoriteTrack(song))
 }
 
 function resolveArtistKey(artist: ArtistRef, index: number) {
@@ -190,6 +194,7 @@ function resolveArtistKey(artist: ArtistRef, index: number) {
           <SongRowActions
             :disabled="song.playable === false"
             :is-downloaded="isLocalSong(song.id)"
+            :is-downloading="isDownloadingSong(song.id)"
             :is-favorite="isFavoriteSong(song.id)"
             show-comments
             @comments="emit('show-comments', song)"

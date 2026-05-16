@@ -59,6 +59,7 @@ const currentArtists = computed(() => getPlayerTrackArtists(currentTrack.value))
 const currentArtist = computed(() => currentArtists.value.map((artist) => artist.name).join(' / ') || '首页热门单曲已接入播放器')
 const currentIsFavorite = computed(() => libraryStore.isFavorite(currentTrack.value?.id))
 const currentIsLocal = computed(() => libraryStore.isLocalTrack(currentTrack.value?.id))
+const currentIsDownloading = computed(() => libraryStore.isDownloadingTrack(currentTrack.value?.id))
 const commentSong = computed<SongCommentSeed | null>(() => {
   const track = currentTrack.value
 
@@ -114,7 +115,7 @@ function handleDownloadCurrentTrack() {
     return
   }
 
-  libraryStore.addLocalTrack(currentTrack.value)
+  libraryStore.downloadLocalTrack(currentTrack.value)
 }
 
 function handleShowCurrentComments() {
@@ -297,11 +298,11 @@ onBeforeUnmount(() => {
 
             <button
               class="player__track-action"
-              :class="{ 'player__track-action--downloaded': currentIsLocal }"
+              :class="{ 'player__track-action--downloaded': currentIsLocal || currentIsDownloading }"
               type="button"
-              :disabled="!currentTrack"
-              :title="currentIsLocal ? '已在本地音乐' : '下载到本地音乐'"
-              :aria-label="currentIsLocal ? '已在本地音乐' : '下载到本地音乐'"
+              :disabled="!currentTrack || currentIsDownloading"
+              :title="currentIsLocal ? '已在本地音乐' : currentIsDownloading ? '下载中...' : '下载到本地音乐'"
+              :aria-label="currentIsLocal ? '已在本地音乐' : currentIsDownloading ? '下载中...' : '下载到本地音乐'"
               @click="handleDownloadCurrentTrack"
             >
               <Download class="player__track-action-icon" :stroke-width="2.1" />

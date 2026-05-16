@@ -33,7 +33,7 @@ const router = useRouter()
 const assistantStore = useAssistantStore()
 const playerStore = usePlayerStore()
 const { currentTrack, queue } = storeToRefs(playerStore)
-const { error, hasMessages, isPanelOpen, isSending, messages } = storeToRefs(assistantStore)
+const { error, hasMessages, isAssistantEnabled, isPanelOpen, isSending, isSmartRecommendEnabled, messages } = storeToRefs(assistantStore)
 const composerInput = ref('')
 const bodyRef = ref<HTMLElement | null>(null)
 
@@ -53,8 +53,34 @@ function getMessageSearchKeyword(message: AssistantUiMessage) {
   return message.action?.query?.trim() ?? ''
 }
 
+function clampSongIndex(index: number | undefined, length: number) {
+  if (length <= 0) {
+    return 0
+  }
+
+  if (!Number.isFinite(index) || Number(index) < 0) {
+    return 0
+  }
+
+  return Math.min(Math.floor(Number(index)), length - 1)
+}
+
 function canOpenSearchResult(message: AssistantUiMessage) {
   return isAssistantMessage(message) && Boolean(getMessageSearchKeyword(message))
+}
+
+function canRunResolvedAction(message: AssistantUiMessage) {
+  const intent = message.action?.intent
+
+  return isAssistantMessage(message) && getSongList(message).length > 0 && (intent === 'play_song' || intent === 'enqueue_song')
+}
+
+function getResolvedActionLabel(message: AssistantUiMessage) {
+  if (message.action?.intent === 'enqueue_song') {
+    return '加入下一首'
+  }
+
+  return '播放推荐'
 }
 
 function getMessageStatusLabel(message: AssistantUiMessage) {
@@ -66,7 +92,37 @@ function getMessageStatusLabel(message: AssistantUiMessage) {
     return '正在分析'
   }
 
+  if (message.diagnostics?.fallbackReason === 'missing_credentials') {
+    return '未配置模型'
+  }
+
+  if (message.diagnostics?.fallbackReason === 'model_error') {
+    return '模型降级'
+  }
+
   return message.usedModel ? '模型输出' : '本地兜底'
+}
+
+function getMessageStatusTitle(message: AssistantUiMessage) {
+  const diagnostics = message.diagnostics
+
+  if (!diagnostics?.fallbackReason) {
+    return getMessageStatusLabel(message)
+  }
+
+  if (diagnostics.fallbackReason === 'missing_credentials') {
+    return '缺少模型凭据，已使用本地兜底'
+  }
+
+  const parts = [
+    diagnostics.modelStage ? `阶段: ${diagnostics.modelStage}` : '',
+    diagnostics.modelStatus ? `状态: ${diagnostics.modelStatus}` : '',
+    diagnostics.model ? `模型: ${diagnostics.model}` : '',
+    diagnostics.modelBaseUrl ? `服务: ${diagnostics.modelBaseUrl}` : '',
+    diagnostics.modelError ? `错误: ${diagnostics.modelError}` : '',
+  ].filter(Boolean)
+
+  return parts.join(' | ') || '模型请求失败，已使用本地兜底'
 }
 
 function getContextTrackLabel() {
@@ -101,11 +157,19 @@ async function handleSend() {
     return
   }
 
+  if (!isAssistantEnabled.value) {
+    return
+  }
+
   await assistantStore.sendMessage(text, buildAssistantRouteContext(route))
   composerInput.value = ''
 }
 
 async function handleQuickPrompt(prompt: string) {
+  if (!canUseQuickPrompt(prompt)) {
+    return
+  }
+
   composerInput.value = prompt
   await handleSend()
 }
@@ -120,11 +184,35 @@ async function handlePlaySongs(message: AssistantUiMessage, index = 0) {
   await assistantStore.playResolvedSong(songs, index)
 }
 
+async function handleResolvedAction(message: AssistantUiMessage) {
+  const action = message.action
+  const songs = getSongList(message)
+
+  if (!action || !songs.length) {
+    return
+  }
+
+  const selectedIndex = clampSongIndex(action.selectedIndex, songs.length)
+
+  if (action.intent === 'play_song') {
+    await assistantStore.playResolvedSong(songs, selectedIndex)
+    return
+  }
+
+  if (action.intent === 'enqueue_song') {
+    await assistantStore.enqueueResolvedSong(songs[selectedIndex])
+  }
+}
+
 async function handleEnqueueSong(song: AssistantSongResult) {
   await assistantStore.enqueueResolvedSong(song)
 }
 
 async function handleSimilarPrompt() {
+  if (!isAssistantEnabled.value || !isSmartRecommendEnabled.value || isSending.value) {
+    return
+  }
+
   if (currentTrack.value) {
     await assistantStore.sendMessage(`来点和${currentTrack.value.title}类似的歌`, buildAssistantRouteContext(route))
     return
@@ -142,6 +230,18 @@ async function openSearchResult(message: AssistantUiMessage) {
 
   await router.push(buildSearchRoute(keyword, 'song', 1, { source: ASSISTANT_SEARCH_SOURCE }))
   assistantStore.closePanel()
+}
+
+function isRecommendPrompt(prompt: string) {
+  return /推荐|类似|适合|来点/.test(prompt)
+}
+
+function canUseQuickPrompt(prompt: string) {
+  if (!isAssistantEnabled.value || isSending.value) {
+    return false
+  }
+
+  return !isRecommendPrompt(prompt) || isSmartRecommendEnabled.value
 }
 
 watch(
@@ -203,7 +303,13 @@ watch(
             <span>{{ getAssistantRouteLabel(typeof route.name === 'string' ? route.name : '') }}</span>
           </span>
 
-          <button class="assistant-panel__mini-action" type="button" :disabled="isSending" @click="handleSimilarPrompt">
+          <button
+            class="assistant-panel__mini-action"
+            type="button"
+            :disabled="isSending || !isAssistantEnabled || !isSmartRecommendEnabled"
+            :title="isSmartRecommendEnabled ? '相似推荐' : '智能推荐已关闭'"
+            @click="handleSimilarPrompt"
+          >
             相似推荐
           </button>
 
@@ -261,6 +367,8 @@ watch(
               class="assistant-panel__prompt"
               type="button"
               @click="handleQuickPrompt(prompt)"
+              :disabled="!canUseQuickPrompt(prompt)"
+              :title="canUseQuickPrompt(prompt) ? prompt : '智能推荐已关闭'"
             >
               <AiSparkIcon class="assistant-panel__prompt-icon assistant-panel__prompt-icon--spark" />
               <span>{{ prompt }}</span>
@@ -282,7 +390,9 @@ watch(
             <div class="assistant-panel__bubble">
               <div v-if="isAssistantMessage(message)" class="assistant-panel__bubble-head">
                 <span class="assistant-panel__bubble-label">AI 响应</span>
-                <span class="assistant-panel__bubble-badge">{{ getMessageStatusLabel(message) }}</span>
+                <span class="assistant-panel__bubble-badge" :title="getMessageStatusTitle(message)">
+                  {{ getMessageStatusLabel(message) }}
+                </span>
               </div>
 
               <p class="assistant-panel__text">{{ message.text || (message.status === 'streaming' ? '正在整理结果...' : '') }}</p>
@@ -323,17 +433,17 @@ watch(
               </div>
 
               <div
-                v-if="isAssistantMessage(message) && (message.action?.songs?.length || canOpenSearchResult(message))"
+                v-if="isAssistantMessage(message) && (canRunResolvedAction(message) || canOpenSearchResult(message))"
                 class="assistant-panel__footer-actions"
               >
                 <button
-                  v-if="message.action?.songs?.length"
+                  v-if="canRunResolvedAction(message)"
                   class="assistant-panel__footer-button"
                   type="button"
-                  @click="handlePlaySongs(message, message.action.selectedIndex ?? 0)"
+                  @click="handleResolvedAction(message)"
                 >
                   <SkipForward class="assistant-panel__footer-icon" :stroke-width="1.9" />
-                  <span>执行推荐动作</span>
+                  <span>{{ getResolvedActionLabel(message) }}</span>
                 </button>
 
                 <button
@@ -358,9 +468,9 @@ watch(
           <textarea
             v-model="composerInput"
             class="assistant-panel__composer-input"
-            :disabled="isSending"
+            :disabled="isSending || !isAssistantEnabled"
             rows="1"
-            placeholder="继续说一句，例如：来点今晚适合循环的歌"
+            :placeholder="isAssistantEnabled ? '继续说一句，例如：来点今晚适合循环的歌' : 'AI 助手已在设置中关闭'"
           ></textarea>
         </label>
 
@@ -374,7 +484,7 @@ watch(
             停止
           </button>
 
-          <button class="assistant-panel__composer-button" type="submit" :disabled="!composerInput.trim() || isSending">
+          <button class="assistant-panel__composer-button" type="submit" :disabled="!composerInput.trim() || isSending || !isAssistantEnabled">
             <LoaderCircle
               v-if="isSending"
               class="assistant-panel__composer-icon assistant-panel__composer-icon--spinning"

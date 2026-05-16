@@ -164,6 +164,10 @@ function isLocalSong(songId: string) {
   return libraryStore.isLocalTrack(songId)
 }
 
+function isDownloadingSong(songId: string) {
+  return libraryStore.isDownloadingTrack(songId)
+}
+
 function toggleFavoriteSong(song: RankingTrack) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
 }
@@ -181,7 +185,7 @@ function downloadSong(song: RankingTrack) {
     return
   }
 
-  libraryStore.addLocalTrack(toPlayerTrack(song))
+  libraryStore.downloadLocalTrack(toPlayerTrack(song))
 }
 
 function openSongComments(song: RankingTrack) {
@@ -495,6 +499,7 @@ onMounted(() => {
                 <SongRowActions
                   :disabled="song.playable === false"
                   :is-downloaded="isLocalSong(song.id)"
+                  :is-downloading="isDownloadingSong(song.id)"
                   :is-favorite="isFavoriteSong(song.id)"
                   show-comments
                   @comments="openSongComments(song)"

@@ -256,6 +256,10 @@ function isLocalSong(songId: string) {
   return libraryStore.isLocalTrack(songId)
 }
 
+function isDownloadingSong(songId: string) {
+  return libraryStore.isDownloadingTrack(songId)
+}
+
 function toggleFavoriteSong(song: PlaylistTrack) {
   libraryStore.toggleFavorite(toPlayerTrack(song))
 }
@@ -274,8 +278,8 @@ function downloadSong(song: PlaylistTrack) {
     return
   }
 
-  libraryStore.addLocalTrack(toPlayerTrack(song))
-  showActionHint('已添加到本地音乐')
+  libraryStore.downloadLocalTrack(toPlayerTrack(song))
+  showActionHint('已加入下载队列')
 }
 
 async function sharePlaylist() {
@@ -548,6 +552,7 @@ onBeforeUnmount(() => {
               <SongRowActions
                 :disabled="song.playable === false"
                 :is-downloaded="isLocalSong(song.id)"
+                :is-downloading="isDownloadingSong(song.id)"
                 :is-favorite="isFavoriteSong(song.id)"
                 show-comments
                 @comments="openSongComments(song)"

@@ -28,6 +28,7 @@ const visibleTracks = computed<LocalMusicTrack[]>(() =>
   downloadedCollection.value.map((track) => ({
     ...track,
     isFavorite: libraryStore.isFavorite(track.id),
+    isDownloading: libraryStore.isDownloadingTrack(track.id),
   })),
 )
 const hasTracks = computed(() => visibleTracks.value.length > 0)
@@ -68,6 +69,8 @@ function toPlayerTrack(track: LocalMusicTrack | RecentPlayerTrack): PlayerTrack 
     duration: track.duration,
     durationMs: track.durationMs,
     audioUrl: track.audioUrl,
+    localAudioPath: track.localAudioPath,
+    localLyricPath: track.localLyricPath,
     sourceMeta: track.sourceMeta,
     sourceExpiresAt: track.sourceExpiresAt,
   }
@@ -134,7 +137,7 @@ function handlePlayNext(track: RecentPlayerTrack) {
 }
 
 function handleDownloadTrack(track: RecentPlayerTrack) {
-  libraryStore.addLocalTrack(toPlayerTrack(track))
+  libraryStore.downloadLocalTrack(toPlayerTrack(track))
 }
 
 function handleRemoveTrack(trackId: string) {

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>个人简历</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 13mm 14mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #202124;
+        background: #ffffff;
+        font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+        font-size: 12px;
+        line-height: 1.62;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .resume {
+        width: 100%;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        color: #111827;
+        font-size: 24px;
+        line-height: 1.2;
+        text-align: center;
+        letter-spacing: 0.08em;
+      }
+
+      .info {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 18px;
+        color: #374151;
+        font-size: 11px;
+      }
+
+      .section {
+        margin-top: 14px;
+      }
+
+      .section-title {
+        padding-bottom: 4px;
+        border-bottom: 1.5px solid #111827;
+        color: #111827;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.3;
+      }
+
+      .row-head {
+        margin-top: 8px;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        color: #111827;
+        font-weight: 800;
+      }
+
+      .row-head__title {
+        font-size: 13px;
+      }
+
+      .row-head__time {
+        flex: none;
+        font-size: 12px;
+      }
+
+      .education-line {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: auto auto auto 1fr;
+        align-items: center;
+        gap: 18px;
+        color: #111827;
+      }
+
+      .education-line__school {
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .education-line__meta {
+        color: #374151;
+        font-size: 12px;
+      }
+
+      .education-line__time {
+        justify-self: end;
+        color: #6b7280;
+        font-size: 12px;
+      }
+
+      .project-title {
+        margin-top: 9px;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .tags {
+        margin-top: 5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+
+      .tag {
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: #eef2f7;
+        color: #26303f;
+        font-size: 10px;
+        line-height: 1.45;
+      }
+
+      .block-label {
+        margin-top: 8px;
+        color: #111827;
+        font-weight: 800;
+      }
+
+      ul {
+        margin: 4px 0 0;
+        padding-left: 16px;
+      }
+
+      li {
+        margin: 3px 0;
+      }
+
+      li::marker {
+        color: #111827;
+      }
+
+      strong {
+        color: #111827;
+        font-weight: 800;
+      }
+
+      code {
+        padding: 0 3px;
+        border-radius: 3px;
+        background: #f1f5f9;
+        color: #111827;
+        font-family: "Cascadia Code", Consolas, monospace;
+        font-size: 10px;
+      }
+
+      .desc {
+        margin-top: 4px;
+        text-align: justify;
+      }
+
+      .skills li {
+        margin-top: 2px;
+      }
+
+      .plain-skills {
+        margin-top: 7px;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .plain-skills li {
+        margin: 5px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="resume">
+      <h1>个人简历</h1>
+
+      <section class="info" aria-label="基本信息">
+        <span>姓名：XXX</span>
+        <span>手机：XXX</span>
+        <span>邮箱：XXX</span>
+        <span>求职方向：前端开发工程师 / Vue 前端开发工程师</span>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">教育背景</h2>
+        <div class="education-line">
+          <span class="education-line__school">湖北理工学院</span>
+          <span class="education-line__meta">本科</span>
+          <span class="education-line__meta">数据科学与大数据技术</span>
+          <span class="education-line__time">2024.09 - 2028.07</span>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">个人技能</h2>
+        <ul class="plain-skills">
+          <li>HTML/CSS：熟悉 HTML / CSS 基本语法及其新特性，能够使用 Sass / Less 进行样式预处理，掌握弹性布局、网格布局及响应式布局方法，能够快速实现 H5、PC 端响应式布局。</li>
+          <li>JavaScript/TypeScript：熟悉 JS 语法和机制，了解 ES6 新特性，包括原型链、Promise、防抖节流等；熟悉 TypeScript 语法，包括类型推断、类型注释、泛型等。</li>
+          <li>工程化能力：熟悉 Vite + TypeScript 项目开发流程，了解 Node.js，能够配置路径别名、环境变量、生产构建和路由懒加载，具备基础代码拆分与模块化组织能力。</li>
+          <li>网络协议：了解 HTTP 协议、TCP/IP 协议、HTTP 状态码等计算机网络知识。</li>
+          <li>工具：熟练使用 Git、VS Code 等开发工具，熟悉 Codex、Claude Code 等 AI 辅助开发工具。</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">项目经历</h2>
+        <h3 class="project-title">MuseFlow AI - AI 驱动的智能音乐播放平台</h3>
+        <div class="tags">
+          <span class="tag">Vue 3</span>
+          <span class="tag">TypeScript</span>
+          <span class="tag">Vite</span>
+          <span class="tag">Pinia</span>
+          <span class="tag">Vue Router</span>
+          <span class="tag">Express</span>
+          <span class="tag">SSE</span>
+          <span class="tag">Sass</span>
+          <span class="tag">HTML5 Audio</span>
+          <span class="tag">DashScope / OpenAI Compatible API</span>
+        </div>
+
+        <p class="block-label">项目描述：</p>
+        <p class="desc">
+          基于 Vue 3 + TypeScript 构建的智能音乐播放平台，整合搜索、歌单、MV、评论、播放队列、收藏/本地音乐、最近播放同步与 AI 自然语言控播能力；通过 Node 中间层聚合音乐数据接口与大模型接口，形成从音乐发现、播放控制到用户音乐资产沉淀的完整闭环。
+        </p>
+
+        <p class="block-label">项目亮点：</p>
+        <ul>
+          <li><strong>流式响应体验优化：</strong>基于 SSE 实现 AI 回复逐段输出与中断控制，用户无需等待完整结果返回即可看到响应内容，减少 AI 交互过程中的等待空白感，提升对话实时性。</li>
+          <li><strong>路由懒加载与页面拆包：</strong>对首页、搜索、歌单、MV、设置、迷你播放器等业务页面进行路由级懒加载，减少首屏一次性加载资源；生产构建中多数业务页 JS 控制在约 <code>4KB - 17KB</code>，主布局 gzip 后约 <code>19.5KB</code>。</li>
+          <li><strong>稳定播放链路建设：</strong>封装歌曲音源解析、音源过期缓存、代理流式播放、Range 请求转发、进度恢复、音量/播放模式持久化等能力，解决外链音源失效、刷新丢进度、切歌状态错乱等播放器核心体验问题。</li>
+          <li><strong>搜索与内容消费体验优化：</strong>搜索页支持歌曲/歌单/MV 分类、分页、URL 状态同步和过期请求丢弃，并可一键将当前页可播放歌曲转为播放队列；同时补齐评论、MV 播放、歌手/专辑跳转等链路，提升从发现歌曲到播放消费的转化效率。</li>
+          <li><strong>播放状态持久化节流：</strong>对进度条拖动、音量调整等高频操作进行节流保存，降低频繁写入 <code>localStorage</code> 带来的性能损耗，同时保留刷新后恢复播放进度、音量和播放模式的能力。</li>
+        </ul>
+      </section>
+
+    </main>
+  </body>
+</html>

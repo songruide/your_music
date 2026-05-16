@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   BrainCircuit,
@@ -7,7 +7,6 @@ import {
   Database,
   Download,
   FolderOpen,
-  Headphones,
   LogIn,
   LogOut,
   Palette,
@@ -20,12 +19,10 @@ import {
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useMusicLibraryStore } from '@/stores/musicLibrary'
-import { usePlayerStore } from '@/stores/player'
 import {
   DOWNLOAD_TASK_OPTIONS,
   FONT_SIZE_OPTIONS,
   NAME_FORMAT_OPTIONS,
-  PLAY_COMPLETION_ACTIONS,
   PRESET_OPTIONS,
   QUALITY_OPTIONS,
   THEME_OPTIONS,
@@ -46,7 +43,6 @@ type EqualizerBand = {
 
 const authStore = useAuthStore()
 const libraryStore = useMusicLibraryStore()
-const playerStore = usePlayerStore()
 const settingsStore = useSettingsStore()
 const { avatarFallback, avatarUrl, displayName, isSessionLoading, loggedIn } = storeToRefs(authStore)
 const { downloadedCollection, favoriteCollection } = storeToRefs(libraryStore)
@@ -54,10 +50,8 @@ const {
   blurStrength,
   cachePercent,
   cacheUsedGb,
-  completionAction,
   downloadDir,
   downloadTaskCount,
-  fadeSeconds,
   fontSize,
   nameFormat,
   preset,
@@ -68,25 +62,11 @@ const {
 } = storeToRefs(settingsStore)
 
 const qualityOptions = QUALITY_OPTIONS
-const completionActions = PLAY_COMPLETION_ACTIONS
 const themeOptions = THEME_OPTIONS
 const fontSizeOptions = FONT_SIZE_OPTIONS
 const presetOptions = PRESET_OPTIONS
 const downloadTaskOptions = DOWNLOAD_TASK_OPTIONS
 const nameFormatOptions = NAME_FORMAT_OPTIONS
-
-const playbackSettings: ToggleSettingConfig[] = [
-  {
-    key: 'volumeNormalization',
-    title: '音量均衡',
-    description: '不同歌曲响度自动拉平',
-  },
-  {
-    key: 'autoSimilarSongs',
-    title: '自动播放相似歌曲',
-    description: '队列结束后延续当前氛围',
-  },
-]
 
 const downloadSettings: ToggleSettingConfig[] = [
   {
@@ -177,21 +157,6 @@ const presetDescription = computed(() => {
   return '强化情绪和动态，让歌曲更有现场感。'
 })
 
-watch(
-  completionAction,
-  (nextAction) => {
-    if (nextAction === '列表循环' && playerStore.playMode !== 'list-loop') {
-      playerStore.setPlayMode('list-loop')
-      return
-    }
-
-    if (nextAction === '停止播放' && playerStore.playMode !== 'sequential') {
-      playerStore.setPlayMode('sequential')
-    }
-  },
-  { immediate: true },
-)
-
 function handleAccountAction() {
   if (loggedIn.value) {
     void authStore.initialize(true)
@@ -273,64 +238,6 @@ function handleLogout() {
     </section>
 
     <div class="settings-dashboard">
-      <section class="settings-card settings-card--playback">
-        <header class="card-heading">
-          <span class="card-heading__icon card-heading__icon--pink">
-            <Headphones :stroke-width="1.9" />
-          </span>
-          <h2>播放体验</h2>
-        </header>
-
-        <div class="setting-line setting-line--range">
-          <div class="setting-line__copy">
-            <strong>淡入淡出</strong>
-            <small>切歌时保留一点空气感</small>
-          </div>
-          <span class="setting-line__value">{{ fadeSeconds }}s</span>
-          <input
-            v-model.number="fadeSeconds"
-            class="settings-range"
-            :style="{ '--settings-progress': `${(fadeSeconds / 8) * 100}%` }"
-            type="range"
-            min="0"
-            max="8"
-            step="1"
-            aria-label="淡入淡出秒数"
-          />
-        </div>
-
-        <button
-          v-for="setting in playbackSettings"
-          :key="setting.title"
-          class="setting-line"
-          type="button"
-          @click="settingsStore.toggleSetting(setting.key)"
-        >
-          <span class="setting-line__copy">
-            <strong>{{ setting.title }}</strong>
-            <small>{{ setting.description }}</small>
-          </span>
-          <span class="settings-switch" :class="{ 'is-on': toggles[setting.key] }" aria-hidden="true"></span>
-        </button>
-
-        <div class="setting-line setting-line--stacked">
-          <div class="setting-line__copy">
-            <strong>播放完成后操作</strong>
-          </div>
-          <div class="settings-segment">
-            <button
-              v-for="option in completionActions"
-              :key="option"
-              type="button"
-              :class="{ 'is-active': completionAction === option }"
-              @click="settingsStore.setCompletionAction(option)"
-            >
-              {{ option }}
-            </button>
-          </div>
-        </div>
-      </section>
-
       <section class="settings-card settings-card--quality">
         <header class="card-heading">
           <span class="card-heading__icon card-heading__icon--blue">
@@ -597,7 +504,7 @@ function handleLogout() {
 
         <div class="hint-pill">
           <Sparkles :stroke-width="1.8" />
-          <span>和现有 AI 面板联动后，这里会成为推荐策略中心。</span>
+          <span>关闭全部 AI 项后，AI 点歌入口会暂停响应。</span>
         </div>
       </section>
 
@@ -827,7 +734,7 @@ function handleLogout() {
 
 .settings-dashboard {
   display: grid;
-  grid-template-columns: minmax(290px, 0.92fr) minmax(330px, 1fr) minmax(340px, 1.08fr);
+  grid-template-columns: minmax(320px, 1fr) minmax(340px, 1.08fr);
   gap: 14px;
   margin-top: 14px;
 }
@@ -843,12 +750,6 @@ function handleLogout() {
   min-width: 0;
   padding: 16px;
   border-radius: 18px;
-}
-
-.settings-card--playback {
-  background:
-    radial-gradient(circle at 4% 12%, rgba(255, 90, 218, 0.14), transparent 30%),
-    rgba(8, 15, 45, var(--app-glass-alpha));
 }
 
 .settings-card--quality {

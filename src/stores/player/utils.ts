@@ -37,10 +37,17 @@ export function isPreferredAudioUrl(url?: string) {
   return typeof url === 'string' && url.startsWith('/api/player/stream?')
 }
 
+export function isPreferredLocalAudioUrl(url?: string) {
+  return typeof url === 'string' && url.startsWith('/api/player/local-file?')
+}
+
 export function sanitizeTrackForPersistence(track: PlayerTrack) {
   const nextTrack = cloneTrack(track)
 
-  if (!isPreferredAudioUrl(nextTrack.audioUrl) || isSourceExpired(nextTrack.sourceExpiresAt)) {
+  if (
+    (!isPreferredAudioUrl(nextTrack.audioUrl) && !isPreferredLocalAudioUrl(nextTrack.audioUrl)) ||
+    (isPreferredAudioUrl(nextTrack.audioUrl) && isSourceExpired(nextTrack.sourceExpiresAt))
+  ) {
     delete nextTrack.audioUrl
     delete nextTrack.sourceExpiresAt
   }

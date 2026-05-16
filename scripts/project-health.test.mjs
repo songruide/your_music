@@ -71,6 +71,25 @@ test('server route errors keep the unified error envelope', async (t) => {
   assert.equal(body.message, 'keywords is required')
 })
 
+test('player download route validates request body with unified error envelope', async (t) => {
+  const { baseUrl, server } = await listen()
+  t.after(() => closeServer(server))
+
+  const response = await fetch(`${baseUrl}/api/player/download`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  })
+  const body = await response.json()
+
+  assert.equal(response.status, 500)
+  assert.equal(body.code, 500)
+  assert.equal(body.data, null)
+  assert.match(body.message, /下载目录不能为空|歌曲 id 不能为空/)
+})
+
 test('pagination query helpers normalize invalid input safely', () => {
   assert.equal(getLimit(undefined, 40), 40)
   assert.equal(getLimit('0', 40), 40)

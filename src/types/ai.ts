@@ -52,9 +52,19 @@ export interface AssistantActionPayload {
   songs: AssistantSongResult[]
 }
 
+export interface AssistantDiagnostics {
+  fallbackReason?: 'missing_credentials' | 'model_error'
+  model?: string
+  modelBaseUrl?: string
+  modelError?: string
+  modelStage?: string
+  modelStatus?: number
+}
+
 export interface AssistantResponsePayload {
   reply: string
   action: AssistantActionPayload
+  diagnostics?: AssistantDiagnostics | null
   source: 'model' | 'fallback'
   usedModel: boolean
 }

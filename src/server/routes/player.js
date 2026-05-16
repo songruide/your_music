@@ -1,5 +1,7 @@
 import express from 'express'
+import fs from 'node:fs'
 import { AUDIO_RESPONSE_HEADERS, DEFAULT_SONG_LEVEL } from '../config.js'
+import { downloadSongToLocal } from '../services/downloads.js'
 import { pipeUpstreamStream } from '../services/media.js'
 import { fetchNcm } from '../services/ncm.js'
 import { buildSongStreamUrl, resolveSongSource } from '../services/player.js'
@@ -14,6 +16,7 @@ import {
 } from '../utils/http.js'
 
 const router = express.Router()
+const downloadedAudioPaths = new Map()
 
 router.get('/api/player/song-url', createRouteHandler(async (req, res) => {
   const id = getRequiredQueryString(req, 'id', 'song id is required')
@@ -88,6 +91,31 @@ router.get('/api/player/recent-songs', createRouteHandler(async (req, res) => {
   })
 
   sendOk(res, tracks)
+}))
+
+router.post('/api/player/download', createRouteHandler(async (req, res) => {
+  const cookie = readAuthCookie(req)
+  const result = await downloadSongToLocal(req.body, { cookie })
+  const trackId = String(req.body?.track?.id ?? '').trim()
+
+  if (trackId) {
+    downloadedAudioPaths.set(trackId, result.audioPath)
+  }
+
+  sendOk(res, result)
+}))
+
+router.get('/api/player/local-file', createRouteHandler(async (req, res) => {
+  const id = getRequiredQueryString(req, 'id', 'song id is required')
+  const queryPath = String(req.query.path ?? '').trim()
+  const registeredPath = downloadedAudioPaths.get(id)
+  const filePath = registeredPath || queryPath
+
+  if (!filePath || (registeredPath && queryPath && queryPath !== registeredPath) || !fs.existsSync(filePath)) {
+    throw new HttpError(404, `本地音频文件不存在: ${id}`)
+  }
+
+  res.sendFile(filePath)
 }))
 
 router.get('/api/player/stream', createRouteHandler(async (req, res) => {

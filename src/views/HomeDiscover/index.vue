@@ -329,7 +329,7 @@ function downloadSong(song: HomeSong) {
     return
   }
 
-  libraryStore.addLocalTrack(toPlayerTrack(song))
+  libraryStore.downloadLocalTrack(toPlayerTrack(song))
 }
 
 function toggleFavoriteSong(song: HomeSong) {
@@ -354,6 +354,10 @@ function isFavoriteSong(songId: string) {
 
 function isLocalSong(songId: string) {
   return libraryStore.isLocalTrack(songId)
+}
+
+function isDownloadingSong(songId: string) {
+  return libraryStore.isDownloadingTrack(songId)
 }
 
 function playAllSongs() {
@@ -786,6 +790,7 @@ watch(
             <SongRowActions
               :disabled="song.playable === false"
               :is-downloaded="isLocalSong(song.id)"
+              :is-downloading="isDownloadingSong(song.id)"
               :is-favorite="isFavoriteSong(song.id)"
               show-comments
               @comments="openSongComments(song)"

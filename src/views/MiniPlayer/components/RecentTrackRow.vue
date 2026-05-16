@@ -27,6 +27,7 @@ const emit = defineEmits<{
 
 const favoriteTitle = computed(() => (props.track.isFavorite ? '取消喜欢' : '加入喜欢'))
 const isDownloaded = computed(() => Boolean((props.track as RecentPlayerTrack & { isDownloaded?: boolean }).isDownloaded))
+const isDownloading = computed(() => Boolean((props.track as RecentPlayerTrack & { isDownloading?: boolean }).isDownloading))
 const trackArtists = computed<ArtistRef[]>(() => {
   const artists = props.track.artists
     ?.map((artist) => ({
@@ -132,10 +133,11 @@ const artistTitle = computed(() => trackArtists.value.map((artist) => artist.nam
 
       <button
         class="history-row__icon song-action song-action--on-hover"
-        :class="{ 'song-action--downloaded': isDownloaded }"
+        :class="{ 'song-action--downloaded': isDownloaded || isDownloading }"
         type="button"
-        :title="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
-        :aria-label="isDownloaded ? '已在本地音乐' : '下载到本地音乐'"
+        :title="isDownloaded ? '已在本地音乐' : isDownloading ? '下载中...' : '下载到本地音乐'"
+        :aria-label="isDownloaded ? '已在本地音乐' : isDownloading ? '下载中...' : '下载到本地音乐'"
+        :disabled="isDownloading"
         @click.stop="emit('download-track', track)"
       >
         <Download :stroke-width="2" />

@@ -12,6 +12,7 @@ const ACTION_CLOSE_TAG = '</assistant_action>'
 const SUPPORTED_INTENTS = new Set(['reply_only', 'search_song', 'play_song', 'enqueue_song', 'play_next'])
 const MODEL_RETRY_LIMIT = 2
 const MODEL_RETRY_DELAY_MS = 700
+const MODEL_FAILURE_MESSAGE_LIMIT = 180
 
 function sanitizeText(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -109,6 +110,70 @@ export function normalizeAssistantRequestBody(body) {
 
 function hasModelCredentials() {
   return Boolean(DASHSCOPE_API_KEY && AI_MODEL && AI_BASE_URL)
+}
+
+function getSafeModelBaseUrl() {
+  try {
+    const url = new URL(AI_BASE_URL)
+
+    return url.origin
+  } catch {
+    return ''
+  }
+}
+
+function getSafeErrorMessage(error) {
+  const rawMessage = error instanceof Error ? error.message : String(error ?? 'unknown error')
+  const message = rawMessage.replace(/\s+/g, ' ').trim()
+
+  return message.slice(0, MODEL_FAILURE_MESSAGE_LIMIT) || 'unknown error'
+}
+
+function getErrorStatus(error) {
+  const status = Number(error?.status)
+
+  return Number.isFinite(status) ? status : undefined
+}
+
+function isAbortError(error, signal) {
+  if (signal?.aborted) {
+    return true
+  }
+
+  if (error instanceof Error) {
+    return error.name === 'AbortError' || /aborted/i.test(error.message)
+  }
+
+  return false
+}
+
+function createMissingCredentialsDiagnostic() {
+  return {
+    fallbackReason: 'missing_credentials',
+    model: AI_MODEL || '',
+    modelBaseUrl: getSafeModelBaseUrl(),
+  }
+}
+
+function createModelFailureDiagnostic(error, stage) {
+  return {
+    fallbackReason: 'model_error',
+    model: AI_MODEL || '',
+    modelBaseUrl: getSafeModelBaseUrl(),
+    modelError: getSafeErrorMessage(error),
+    modelStage: stage,
+    modelStatus: getErrorStatus(error),
+  }
+}
+
+function logModelFailure(error, stage) {
+  if (isAbortError(error)) {
+    return
+  }
+
+  const diagnostic = createModelFailureDiagnostic(error, stage)
+
+  console.warn('[ai] model request failed; using local fallback', diagnostic)
 }
 
 function buildSystemPrompt(context) {
@@ -394,6 +459,7 @@ async function requestModelResponse(messages, context, stream, signal) {
     const shouldRetry = shouldRetryModelRequest(response.status, responseText)
 
     lastError = new Error(`AI request failed: ${response.status}`)
+    lastError.status = response.status
 
     if (!shouldRetry || attempt >= MODEL_RETRY_LIMIT - 1) {
       throw lastError
@@ -674,13 +740,14 @@ function buildFallbackReply(messages, context) {
   return createFallbackTaggedResponse(messages, context)
 }
 
-async function buildResolvedPayload(rawText, fallbackInput, source, context) {
+async function buildResolvedPayload(rawText, fallbackInput, source, context, diagnostics) {
   const parsed = parseTaggedAssistantResponse(rawText, fallbackInput, context)
   const resolved = await resolveActionResult(parsed, fallbackInput, context)
 
   return {
     reply: resolved.reply,
     action: resolved.action,
+    diagnostics,
     source,
     usedModel: source === 'model',
   }
@@ -703,17 +770,26 @@ export async function chatWithAssistant({ messages, context, signal }) {
     }
   }
 
-  try {
-    if (hasModelCredentials()) {
+  let diagnostics = null
+
+  if (hasModelCredentials()) {
+    try {
       const rawText = await callModelCompletion(messages, context, signal)
       return await buildResolvedPayload(rawText, fallbackInput, 'model', context)
+    } catch (error) {
+      if (isAbortError(error, signal)) {
+        throw error
+      }
+
+      logModelFailure(error, 'completion')
+      diagnostics = createModelFailureDiagnostic(error, 'completion')
     }
-  } catch {
-    // Fall through to the local heuristic fallback.
+  } else {
+    diagnostics = createMissingCredentialsDiagnostic()
   }
 
   const fallbackText = buildFallbackReply(messages, context)
-  return await buildResolvedPayload(fallbackText, fallbackInput, 'fallback', context)
+  return await buildResolvedPayload(fallbackText, fallbackInput, 'fallback', context, diagnostics)
 }
 
 export async function streamAssistantConversation({ messages, context, signal, onReplyDelta }) {
@@ -739,6 +815,8 @@ export async function streamAssistantConversation({ messages, context, signal, o
     }
   }
 
+  let diagnostics = null
+
   if (hasModelCredentials()) {
     try {
       let streamedLength = 0
@@ -761,7 +839,14 @@ export async function streamAssistantConversation({ messages, context, signal, o
       }
 
       return payload
-    } catch {
+    } catch (error) {
+      if (isAbortError(error, signal)) {
+        throw error
+      }
+
+      logModelFailure(error, 'stream')
+      diagnostics = createModelFailureDiagnostic(error, 'stream')
+
       try {
         const rawText = await callModelCompletion(messages, context, signal)
         const payload = await buildResolvedPayload(rawText, fallbackInput, 'model', context)
@@ -771,14 +856,21 @@ export async function streamAssistantConversation({ messages, context, signal, o
         }
 
         return payload
-      } catch {
-        // Fall through to the local heuristic fallback.
+      } catch (completionError) {
+        if (isAbortError(completionError, signal)) {
+          throw completionError
+        }
+
+        logModelFailure(completionError, 'stream-fallback-completion')
+        diagnostics = createModelFailureDiagnostic(completionError, 'stream-fallback-completion')
       }
     }
+  } else {
+    diagnostics = createMissingCredentialsDiagnostic()
   }
 
   const fallbackText = buildFallbackReply(messages, context)
-  const fallbackPayload = await buildResolvedPayload(fallbackText, fallbackInput, 'fallback', context)
+  const fallbackPayload = await buildResolvedPayload(fallbackText, fallbackInput, 'fallback', context, diagnostics)
 
   for (const textChunk of chunkText(fallbackPayload.reply)) {
     onReplyDelta?.(textChunk)
