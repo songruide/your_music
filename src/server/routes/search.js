@@ -6,6 +6,97 @@ import { getLimit, getOffset } from '../utils/params.js'
 
 const router = express.Router()
 
+function getText(value, fallback = '') {
+  return String(value ?? fallback).trim()
+}
+
+function normalizeSuggestionSong(item) {
+  const artists = getArtists(item.artists ?? item.ar)
+
+  return {
+    id: String(item.id ?? item.name ?? ''),
+    keyword: item.name ?? '',
+    name: item.name ?? '',
+    artistNames: getArtistNames(artists),
+    albumName: item.album?.name ?? item.al?.name ?? '',
+    type: 'song',
+  }
+}
+
+function normalizeSuggestionMv(item) {
+  return {
+    id: String(item.id ?? item.name ?? ''),
+    keyword: item.name ?? '',
+    name: item.name ?? '',
+    artistNames: getArtistNames(item.artists ?? item.artistName ?? item.artistNames),
+    type: 'mv',
+  }
+}
+
+function normalizeSuggestionAlbum(item) {
+  const artistName = getText(item.artist?.name)
+
+  return {
+    id: String(item.id ?? item.name ?? ''),
+    keyword: item.name ?? '',
+    name: item.name ?? '',
+    artistNames: artistName ? [artistName] : [],
+    type: 'album',
+  }
+}
+
+function normalizeSuggestionArtist(item) {
+  return {
+    id: String(item.id ?? item.name ?? ''),
+    keyword: item.name ?? '',
+    name: item.name ?? '',
+    artistNames: [],
+    type: 'artist',
+  }
+}
+
+function normalizeSuggestionPlaylist(item) {
+  return {
+    id: String(item.id ?? item.name ?? ''),
+    keyword: item.name ?? '',
+    name: item.name ?? '',
+    artistNames: item.creator?.nickname ? [item.creator.nickname] : [],
+    type: 'playlist',
+  }
+}
+
+function normalizeKeywordSuggestion(item) {
+  const keyword = getText(item.keyword)
+
+  return keyword
+    ? {
+        id: keyword,
+        keyword,
+        name: keyword,
+        artistNames: [],
+        type: 'keyword',
+      }
+    : null
+}
+
+function compactSuggestions(items, limit) {
+  const seen = new Set()
+
+  return items
+    .filter((item) => item && item.name)
+    .filter((item) => {
+      const key = `${item.type}:${item.id || item.name}`.toLowerCase()
+
+      if (seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
+    .slice(0, limit)
+}
+
 router.get('/api/search/songs', createRouteHandler(async (req, res) => {
   const keywords = getRequiredQueryString(req, 'keywords', 'keywords is required')
   const limit = Math.min(getLimit(req.query.limit, 40), 60)
@@ -44,6 +135,53 @@ router.get('/api/search/songs', createRouteHandler(async (req, res) => {
     keyword: keywords,
     total: Number(payload.result?.songCount ?? songs.length),
     songs,
+  })
+}))
+
+router.get('/api/search/suggestions', createRouteHandler(async (req, res) => {
+  const keywords = getRequiredQueryString(req, 'keywords', 'keywords is required')
+  const limit = Math.min(getLimit(req.query.limit, 4), 8)
+  const payload = await fetchNcm('/search/suggest', {
+    keywords,
+    type: 'web',
+  })
+  const result = payload.result ?? {}
+  const groups = [
+    {
+      key: 'songs',
+      label: '单曲',
+      items: compactSuggestions((result.songs ?? []).map(normalizeSuggestionSong), limit),
+    },
+    {
+      key: 'mvs',
+      label: '视频',
+      items: compactSuggestions((result.mvs ?? []).map(normalizeSuggestionMv), limit),
+    },
+    {
+      key: 'albums',
+      label: '专辑',
+      items: compactSuggestions((result.albums ?? []).map(normalizeSuggestionAlbum), limit),
+    },
+    {
+      key: 'artists',
+      label: '歌手',
+      items: compactSuggestions((result.artists ?? []).map(normalizeSuggestionArtist), limit),
+    },
+    {
+      key: 'playlists',
+      label: '歌单',
+      items: compactSuggestions((result.playlists ?? []).map(normalizeSuggestionPlaylist), limit),
+    },
+    {
+      key: 'keywords',
+      label: '相关搜索',
+      items: compactSuggestions((result.allMatch ?? []).map(normalizeKeywordSuggestion), limit),
+    },
+  ].filter((group) => group.items.length > 0)
+
+  sendOk(res, {
+    keyword: keywords,
+    groups,
   })
 }))
 

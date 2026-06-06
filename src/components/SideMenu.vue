@@ -13,13 +13,11 @@ import type { Component } from 'vue'
 import { useRoute } from 'vue-router'
 
 // 侧边栏菜单项的数据模型。
-// to 表示这是一个可跳转路由；
-// muted 表示当前只是“占位入口”，先展示但暂不开放交互。
+// to 表示这是一个可跳转路由。
 type MenuItem = {
   label: string
   icon: Component
-  to?: string
-  muted?: boolean
+  to: string
 }
 
 const route = useRoute()
@@ -52,7 +50,7 @@ const sections: Array<{ title: string; items: MenuItem[] }> = [
 ]
 
 // 当前路径与菜单目标路径一致时，高亮对应项。
-const isActive = (to?: string) => Boolean(to && route.path === to)
+const isActive = (to: string) => route.path === to
 </script>
 
 <template>
@@ -73,9 +71,8 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
 
         <div class="menu__group">
           <template v-for="item in section.items" :key="item.label">
-            <!-- 有 to 的菜单项渲染成 RouterLink，点击后执行真实路由跳转。 -->
+            <!-- 菜单项渲染成 RouterLink，点击后执行真实路由跳转。 -->
             <RouterLink
-              v-if="item.to"
               :to="item.to"
               class="menu__item"
               :class="{ 'is-active': isActive(item.to) }"
@@ -83,17 +80,6 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
               <component :is="item.icon" class="menu__icon" />
               <span>{{ item.label }}</span>
             </RouterLink>
-
-            <!-- 没有 to 的菜单项先用 button 占位，表示“功能规划中但暂未开放”。 -->
-            <button
-              v-else
-              type="button"
-              class="menu__item menu__item--button"
-              :class="{ 'is-muted': item.muted }"
-            >
-              <component :is="item.icon" class="menu__icon" />
-              <span>{{ item.label }}</span>
-            </button>
           </template>
         </div>
       </section>
@@ -196,11 +182,6 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
     box-shadow 0.2s ease;
 }
 
-.menu__item--button {
-  background: transparent;
-  cursor: default;
-}
-
 .menu__item:hover,
 .menu__item:focus-visible,
 .menu__item.is-active {
@@ -211,16 +192,12 @@ const isActive = (to?: string) => Boolean(to && route.path === to)
   outline: none;
 }
 
-.menu__item:not(.menu__item--button):hover {
+.menu__item:hover {
   transform: translateX(2px);
 }
 
 .menu__item.is-active {
   background: rgba(255, 255, 255, 0.14);
-}
-
-.menu__item.is-muted {
-  color: rgba(255, 235, 255, 0.82);
 }
 
 .menu__icon {

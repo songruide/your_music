@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import {
   LoaderCircle,
-  LockKeyhole,
   QrCode,
   RefreshCw,
   ScanLine,
+  Smartphone,
   UserRound,
   X,
 } from 'lucide-vue-next'
@@ -12,11 +12,16 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
+const CAPTCHA_COUNTDOWN_SECONDS = 60
 const phone = ref('')
-const password = ref('')
+const captcha = ref('')
 const formError = ref('')
+const captchaMessage = ref('')
+const captchaCountdown = ref(0)
+const isCaptchaSending = ref(false)
 
-const isPasswordLogin = computed(() => authStore.loginMethod === 'password')
+const isCaptchaLogin = computed(() => authStore.loginMethod === 'password')
+const canSendCaptcha = computed(() => !isCaptchaSending.value && captchaCountdown.value === 0)
 const qrNotice = computed(() => {
   if (authStore.qrError) {
     return authStore.qrError
@@ -26,6 +31,7 @@ const qrNotice = computed(() => {
 })
 
 let previousBodyOverflow = ''
+let captchaTimer: ReturnType<typeof window.setInterval> | null = null
 
 function closeDialog() {
   authStore.closeLoginDialog()
@@ -39,27 +45,119 @@ function handleKeydown(event: KeyboardEvent) {
 
 function selectMethod(method: 'password' | 'qr') {
   formError.value = ''
+  captchaMessage.value = ''
+
+  if (method === 'qr') {
+    clearCaptchaTimer()
+  }
+
   void authStore.setLoginMethod(method)
 }
 
-async function submitPasswordLogin() {
-  formError.value = ''
+function normalizePhoneInput(value: string) {
+  const digits = value.trim().replace(/\D/g, '')
 
-  if (!phone.value.trim()) {
+  if (digits.startsWith('0086') && digits.length > 11) {
+    return digits.slice(4)
+  }
+
+  if (digits.startsWith('86') && digits.length > 11) {
+    return digits.slice(2)
+  }
+
+  return digits
+}
+
+function getValidPhone() {
+  const value = normalizePhoneInput(phone.value)
+
+  if (!value) {
     formError.value = '请输入手机号'
+    return ''
+  }
+
+  if (!/^1[3-9]\d{9}$/.test(value)) {
+    formError.value = '请输入正确的 11 位手机号'
+    return ''
+  }
+
+  phone.value = value
+  return value
+}
+
+function clearCaptchaTimer() {
+  if (captchaTimer !== null) {
+    window.clearInterval(captchaTimer)
+    captchaTimer = null
+  }
+
+  captchaCountdown.value = 0
+}
+
+function startCaptchaCountdown() {
+  if (captchaTimer !== null) {
+    window.clearInterval(captchaTimer)
+  }
+
+  captchaCountdown.value = CAPTCHA_COUNTDOWN_SECONDS
+  captchaTimer = window.setInterval(() => {
+    if (captchaCountdown.value <= 1) {
+      clearCaptchaTimer()
+      return
+    }
+
+    captchaCountdown.value -= 1
+  }, 1000)
+}
+
+async function sendCaptcha() {
+  formError.value = ''
+  captchaMessage.value = ''
+  const validPhone = getValidPhone()
+
+  if (!validPhone) {
     return
   }
 
-  if (!password.value) {
-    formError.value = '请输入密码'
+  isCaptchaSending.value = true
+
+  try {
+    await authStore.sendLoginCaptcha(validPhone)
+    captchaMessage.value = '验证码已发送，请留意短信'
+    startCaptchaCountdown()
+  } catch {
+  } finally {
+    isCaptchaSending.value = false
+  }
+}
+
+async function submitCaptchaLogin() {
+  formError.value = ''
+  captchaMessage.value = ''
+  const validPhone = getValidPhone()
+
+  if (!validPhone) {
     return
   }
 
-  await authStore.loginWithCellphone(phone.value, password.value)
+  const validCaptcha = captcha.value.trim()
+
+  if (!validCaptcha) {
+    formError.value = '请输入短信验证码'
+    return
+  }
+
+  if (!/^\d{4,8}$/.test(validCaptcha)) {
+    formError.value = '验证码格式不正确'
+    return
+  }
+
+  await authStore.loginWithCellphone(validPhone, validCaptcha)
 
   if (authStore.loggedIn) {
     phone.value = ''
-    password.value = ''
+    captcha.value = ''
+    clearCaptchaTimer()
   }
 }
 
@@ -77,8 +175,10 @@ watch(
 
     if (!isOpen) {
       phone.value = ''
-      password.value = ''
+      captcha.value = ''
       formError.value = ''
+      captchaMessage.value = ''
+      clearCaptchaTimer()
     }
   },
 )
@@ -95,6 +195,8 @@ onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
     document.body.style.overflow = previousBodyOverflow
   }
+
+  clearCaptchaTimer()
 })
 </script>
 
@@ -123,17 +225,17 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="auth-dialog__switch-item"
-            :class="{ 'is-active': isPasswordLogin }"
+            :class="{ 'is-active': isCaptchaLogin }"
             @click="selectMethod('password')"
           >
-            <LockKeyhole class="auth-dialog__switch-icon" :stroke-width="1.8" />
-            <span>密码登录</span>
+            <Smartphone class="auth-dialog__switch-icon" :stroke-width="1.8" />
+            <span>验证码登录</span>
           </button>
 
           <button
             type="button"
             class="auth-dialog__switch-item"
-            :class="{ 'is-active': !isPasswordLogin }"
+            :class="{ 'is-active': !isCaptchaLogin }"
             @click="selectMethod('qr')"
           >
             <QrCode class="auth-dialog__switch-icon" :stroke-width="1.8" />
@@ -141,7 +243,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div v-if="isPasswordLogin" class="auth-dialog__body">
+        <div v-if="isCaptchaLogin" class="auth-dialog__body">
           <label class="auth-dialog__field">
             <span class="auth-dialog__field-label">手机号</span>
             <input
@@ -154,16 +256,35 @@ onBeforeUnmount(() => {
           </label>
 
           <label class="auth-dialog__field">
-            <span class="auth-dialog__field-label">密码</span>
-            <input
-              v-model="password"
-              class="auth-dialog__input"
-              type="password"
-              placeholder="请输入密码"
-              autocomplete="current-password"
-              @keydown.enter.prevent="submitPasswordLogin"
-            />
+            <span class="auth-dialog__field-label">短信验证码</span>
+            <div class="auth-dialog__code-row">
+              <input
+                v-model="captcha"
+                class="auth-dialog__input"
+                type="text"
+                inputmode="numeric"
+                placeholder="请输入验证码"
+                autocomplete="one-time-code"
+                @keydown.enter.prevent="submitCaptchaLogin"
+              />
+              <button
+                type="button"
+                class="auth-dialog__captcha-button"
+                :disabled="!canSendCaptcha"
+                @click="sendCaptcha"
+              >
+                <LoaderCircle
+                  v-if="isCaptchaSending"
+                  class="auth-dialog__captcha-icon auth-dialog__captcha-icon--spinning"
+                  :stroke-width="1.9"
+                />
+                <span v-if="captchaCountdown">{{ captchaCountdown }}s</span>
+                <span v-else>{{ isCaptchaSending ? '发送中' : '获取验证码' }}</span>
+              </button>
+            </div>
           </label>
+
+          <p v-if="captchaMessage" class="auth-dialog__success">{{ captchaMessage }}</p>
 
           <p v-if="formError || authStore.credentialError" class="auth-dialog__error">
             {{ formError || authStore.credentialError }}
@@ -173,7 +294,7 @@ onBeforeUnmount(() => {
             type="button"
             class="auth-dialog__primary"
             :disabled="authStore.isCredentialLoading"
-            @click="submitPasswordLogin"
+            @click="submitCaptchaLogin"
           >
             <LoaderCircle
               v-if="authStore.isCredentialLoading"
@@ -426,6 +547,45 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.06);
 }
 
+.auth-dialog__code-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 8px;
+}
+
+.auth-dialog__captcha-button {
+  min-width: 0;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.auth-dialog__captcha-button:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+.auth-dialog__captcha-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.auth-dialog__success {
+  margin: 12px 0 0;
+  color: #82edb2;
+  font-size: 12px;
+}
+
 .auth-dialog__error,
 .auth-dialog__notice.is-error {
   color: #ff7d9d;
@@ -472,6 +632,7 @@ onBeforeUnmount(() => {
 
 .auth-dialog__primary-icon--spinning,
 .auth-dialog__secondary-icon--spinning,
+.auth-dialog__captcha-icon--spinning,
 .auth-dialog__qr-placeholder-icon--spinning {
   animation: auth-dialog-spin 0.9s linear infinite;
 }
@@ -558,6 +719,10 @@ onBeforeUnmount(() => {
   }
 
   .auth-dialog__switch {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-dialog__code-row {
     grid-template-columns: 1fr;
   }
 }

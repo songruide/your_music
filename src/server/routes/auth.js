@@ -6,6 +6,7 @@ import {
   getLoginSession,
   loginWithCellphone,
   logoutSession,
+  sendCellphoneCaptcha,
 } from '../services/auth.js'
 import { clearAuthCookie, readAuthCookie, writeAuthCookie } from '../utils/auth-cookie.js'
 import { createRouteHandler, getRequiredQueryString, HttpError, sendOk } from '../utils/http.js'
@@ -92,22 +93,40 @@ router.get(
 )
 
 router.post(
-  '/api/auth/cellphone-login',
+  '/api/auth/captcha/send',
   createRouteHandler(async (req, res) => {
     const phone = String(req.body?.phone ?? '').trim()
-    const password = String(req.body?.password ?? '')
 
     if (!phone) {
       throw new HttpError(400, '手机号不能为空')
     }
 
-    if (!password) {
-      throw new HttpError(400, '密码不能为空')
+    const result = await sendCellphoneCaptcha({
+      phone,
+      ua: 'pc',
+    })
+
+    sendOk(res, result)
+  }),
+)
+
+router.post(
+  '/api/auth/cellphone-login',
+  createRouteHandler(async (req, res) => {
+    const phone = String(req.body?.phone ?? '').trim()
+    const captcha = String(req.body?.captcha ?? '').trim()
+
+    if (!phone) {
+      throw new HttpError(400, '手机号不能为空')
+    }
+
+    if (!captcha) {
+      throw new HttpError(400, '验证码不能为空')
     }
 
     const result = await loginWithCellphone({
       phone,
-      password,
+      captcha,
       ua: 'pc',
     })
 

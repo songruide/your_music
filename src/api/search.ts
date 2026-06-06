@@ -2,6 +2,7 @@ import { request } from '@/utils/request'
 import type { ArtistRef } from '@/types/music'
 
 export type SearchCategory = 'song' | 'playlist' | 'mv'
+export type SearchSuggestionType = SearchCategory | 'album' | 'artist' | 'keyword' | 'local'
 
 // SearchSong 是“搜索结果里单首歌曲”的前端数据结构。
 // 这里的字段设计尽量贴近页面展示需求，而不是直接照搬后端原始结构，
@@ -37,6 +38,23 @@ export interface SearchMv {
   playCount?: number
 }
 
+export interface SearchSuggestionItem {
+  id: string
+  keyword: string
+  name: string
+  artistNames: string[]
+  albumName?: string
+  coverUrl?: string
+  duration?: number
+  type: SearchSuggestionType
+}
+
+export interface SearchSuggestionGroup {
+  key: string
+  label: string
+  items: SearchSuggestionItem[]
+}
+
 // 搜索接口返回的是“本次关键词 + 总结果数 + 当前页歌曲列表”。
 // 这里虽然现在只做了简单搜索页，但把返回值单独建模后，
 // 后面加分页、筛选、缓存时会更容易扩展。
@@ -56,6 +74,11 @@ export interface SearchMvsResponse {
   keyword: string
   total: number
   mvs: SearchMv[]
+}
+
+export interface SearchSuggestionsResponse {
+  keyword: string
+  groups: SearchSuggestionGroup[]
 }
 
 export interface SearchRequestOptions {
@@ -88,6 +111,12 @@ export function searchPlaylists(keywords: string, options: SearchRequestOptions 
 
 export function searchMvs(keywords: string, options: SearchRequestOptions = {}) {
   return request<SearchMvsResponse>('/api/search/mvs', {
+    params: buildSearchParams(keywords, options),
+  })
+}
+
+export function searchSuggestions(keywords: string, options: Pick<SearchRequestOptions, 'limit'> = {}) {
+  return request<SearchSuggestionsResponse>('/api/search/suggestions', {
     params: buildSearchParams(keywords, options),
   })
 }

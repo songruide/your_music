@@ -51,6 +51,20 @@ function getQrStatusMessage(statusCode, fallbackMessage = '') {
   }
 }
 
+function normalizeCellphone(value) {
+  const digits = String(value ?? '').trim().replace(/\D/g, '')
+
+  if (digits.startsWith('0086') && digits.length > 11) {
+    return digits.slice(4)
+  }
+
+  if (digits.startsWith('86') && digits.length > 11) {
+    return digits.slice(2)
+  }
+
+  return digits
+}
+
 export async function createLoginQrKey(options = {}) {
   const result = await ncmEnhanced.login_qr_key(options)
   const data = result?.body?.data ?? result?.body ?? {}
@@ -137,23 +151,23 @@ export async function getLoginSession(options = {}) {
 }
 
 export async function loginWithCellphone(options = {}) {
-  const phone = String(options.phone ?? '').trim()
-  const password = String(options.password ?? '')
+  const phone = normalizeCellphone(options.phone)
+  const captcha = String(options.captcha ?? '').trim()
 
-  if (!phone || !password) {
-    throw new Error('phone and password are required')
+  if (!phone || !captcha) {
+    throw new Error('phone and captcha are required')
   }
 
   const result = await ncmEnhanced.login_cellphone({
     ...options,
     phone,
-    password,
+    captcha,
   })
 
   const code = Number(result?.body?.code ?? 0) || 0
 
   if (code !== 200) {
-    throw new Error(String(result?.body?.message ?? '登录失败，请检查手机号和密码'))
+    throw new Error(String(result?.body?.message ?? '登录失败，请检查手机号和验证码'))
   }
 
   const cookie = getRawCookie(result)
@@ -171,6 +185,28 @@ export async function loginWithCellphone(options = {}) {
   return {
     cookie,
     session,
+  }
+}
+
+export async function sendCellphoneCaptcha(options = {}) {
+  const phone = normalizeCellphone(options.phone)
+
+  if (!phone) {
+    throw new Error('phone is required')
+  }
+
+  const result = await ncmEnhanced.captcha_sent({
+    ...options,
+    phone,
+  })
+  const code = Number(result?.body?.code ?? 0) || 0
+
+  if (code !== 200) {
+    throw new Error(String(result?.body?.message ?? '验证码发送失败，请稍后再试'))
+  }
+
+  return {
+    sent: true,
   }
 }
 

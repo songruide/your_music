@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import router from '@/router'
 import {
   cellphoneLoginAuth,
   checkLoginQrStatus,
@@ -7,6 +8,7 @@ import {
   getAuthSession,
   getLoginQrKey,
   logoutAuth,
+  sendCellphoneCaptcha,
   type AuthUserProfile,
 } from '@/api/auth'
 
@@ -94,6 +96,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function redirectAfterLogin() {
+    const redirect = router.currentRoute.value.query.redirect
+
+    if (typeof redirect !== 'string' || !redirect.startsWith('/')) {
+      return
+    }
+
+    void router.replace(redirect)
+  }
+
   async function fetchSession() {
     isSessionLoading.value = true
     sessionError.value = ''
@@ -169,6 +181,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (await syncAuthorizedQrSession()) {
           isLoginDialogOpen.value = false
           resetQrState()
+          redirectAfterLogin()
           return
         }
 
@@ -279,7 +292,19 @@ export const useAuthStore = defineStore('auth', () => {
     stopPolling()
   }
 
-  async function loginWithCellphone(phone: string, password: string) {
+  async function sendLoginCaptcha(phone: string) {
+    credentialError.value = ''
+    sessionError.value = ''
+
+    try {
+      await sendCellphoneCaptcha(phone.trim())
+    } catch (error) {
+      credentialError.value = getErrorMessage(error, '验证码发送失败，请稍后再试')
+      throw error
+    }
+  }
+
+  async function loginWithCellphone(phone: string, captcha: string) {
     isCredentialLoading.value = true
     credentialError.value = ''
     sessionError.value = ''
@@ -287,7 +312,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const session = await cellphoneLoginAuth({
         phone: phone.trim(),
-        password,
+        captcha,
       })
 
       loggedIn.value = session.loggedIn
@@ -296,6 +321,7 @@ export const useAuthStore = defineStore('auth', () => {
       isLoginDialogOpen.value = false
       resetQrState()
       stopPolling()
+      redirectAfterLogin()
     } catch (error) {
       credentialError.value = getErrorMessage(error, '登录失败，请稍后再试')
     } finally {
@@ -348,6 +374,7 @@ export const useAuthStore = defineStore('auth', () => {
     qrUrl,
     refreshQrCode,
     logout,
+    sendLoginCaptcha,
     sessionError,
     setLoginMethod,
     statusTone,

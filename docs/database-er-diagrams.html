@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>数据库第七章课后作业 E-R 图</title>
+  <style>
+    :root {
+      --ink: #1f2937;
+      --muted: #5f6b7a;
+      --line: #253044;
+      --entity: #e8f3ff;
+      --entity-stroke: #2563a9;
+      --rel: #fff3db;
+      --rel-stroke: #b77810;
+      --attr: #f7fbf4;
+      --attr-stroke: #57844a;
+      --note: #f5f7fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #ffffff;
+      font-family: "Microsoft YaHei", "SimSun", Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 48px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    h2 {
+      margin: 30px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #d9e2ef;
+      font-size: 21px;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+
+    .intro {
+      margin: 0 auto 20px;
+      max-width: 860px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      justify-content: center;
+      margin: 18px 0 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .sample {
+      display: inline-block;
+      width: 34px;
+      height: 18px;
+      border: 2px solid currentColor;
+      vertical-align: middle;
+    }
+
+    .sample.entity {
+      color: var(--entity-stroke);
+      background: var(--entity);
+    }
+
+    .sample.attr {
+      color: var(--attr-stroke);
+      background: var(--attr);
+      border-radius: 50%;
+    }
+
+    .sample.rel {
+      width: 22px;
+      height: 22px;
+      color: var(--rel-stroke);
+      background: var(--rel);
+      transform: rotate(45deg);
+    }
+
+    .sheet {
+      margin: 0 0 28px;
+      padding: 18px 18px 20px;
+      border: 1px solid #d8e1ec;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      padding: 8px 0;
+      border: 1px solid #e3e8f1;
+      border-radius: 6px;
+      background: #fcfdff;
+    }
+
+    svg {
+      display: block;
+      min-width: 980px;
+      height: auto;
+      margin: 0 auto;
+      font-size: 15px;
+    }
+
+    .line {
+      stroke: var(--line);
+      stroke-width: 1.7;
+      fill: none;
+    }
+
+    .entity-shape {
+      fill: var(--entity);
+      stroke: var(--entity-stroke);
+      stroke-width: 2;
+    }
+
+    .rel-shape {
+      fill: var(--rel);
+      stroke: var(--rel-stroke);
+      stroke-width: 2;
+    }
+
+    .attr-shape {
+      fill: var(--attr);
+      stroke: var(--attr-stroke);
+      stroke-width: 1.8;
+    }
+
+    .double-attr {
+      fill: none;
+      stroke: var(--attr-stroke);
+      stroke-width: 1.4;
+    }
+
+    .label {
+      fill: var(--ink);
+      font-size: 15px;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .small {
+      font-size: 13px;
+    }
+
+    .cardinality {
+      fill: #111827;
+      font-size: 18px;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .schema {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: var(--note);
+      font-size: 15px;
+    }
+
+    .schema p {
+      margin: 5px 0;
+    }
+
+    .pk {
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 3px;
+    }
+
+    .fk {
+      color: #7c3aed;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media print {
+      main {
+        width: 100%;
+        padding: 0;
+      }
+
+      .sheet {
+        break-inside: avoid;
+        border: 0;
+      }
+
+      .diagram-wrap {
+        border: 0;
+        overflow: visible;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>数据库第七章课后作业 E-R 图</h1>
+    <p class="intro">按教材常见画法绘制：矩形表示实体，椭圆表示属性，菱形表示联系；主码属性加下划线，多值属性用双椭圆，连线旁标明联系类型。</p>
+
+    <div class="legend">
+      <span><i class="sample entity"></i>实体</span>
+      <span><i class="sample attr"></i>属性</span>
+      <span><i class="sample rel"></i>联系</span>
+      <span><span class="pk">下划线</span>：主码</span>
+      <span>1 / n / m：联系类型</span>
+    </div>
+
+    <section class="sheet">
+      <h2>1. 销售部、职工、产品</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1120 620" role="img" aria-label="销售部、职工、产品 E-R 图">
+          <!-- entity to relationship lines -->
+          <line class="line" x1="260" y1="285" x2="305" y2="285" />
+          <line class="line" x1="435" y1="285" x2="465" y2="285" />
+          <line class="line" x1="655" y1="285" x2="685" y2="285" />
+          <line class="line" x1="815" y1="285" x2="860" y2="285" />
+
+          <!-- entity attribute lines -->
+          <line class="line" x1="138" y1="250" x2="70" y2="173" />
+          <line class="line" x1="180" y1="250" x2="180" y2="138" />
+          <line class="line" x1="222" y1="250" x2="290" y2="173" />
+
+          <line class="line" x1="505" y1="250" x2="480" y2="173" />
+          <line class="line" x1="560" y1="250" x2="560" y2="138" />
+          <line class="line" x1="620" y1="250" x2="660" y2="173" />
+
+          <line class="line" x1="900" y1="250" x2="835" y2="173" />
+          <line class="line" x1="940" y1="250" x2="940" y2="138" />
+          <line class="line" x1="980" y1="250" x2="1045" y2="173" />
+
+          <!-- relationship attribute line -->
+          <line class="line" x1="750" y1="245" x2="750" y2="188" />
+
+          <!-- attributes -->
+          <ellipse class="attr-shape" cx="70" cy="145" rx="58" ry="28" />
+          <text class="label pk" x="70" y="145">职工号</text>
+          <ellipse class="attr-shape" cx="180" cy="110" rx="48" ry="28" />
+          <text class="label" x="180" y="110">姓名</text>
+          <ellipse class="attr-shape" cx="290" cy="145" rx="48" ry="28" />
+          <text class="label" x="290" y="145">性别</text>
+
+          <ellipse class="attr-shape" cx="480" cy="145" rx="66" ry="28" />
+          <text class="label pk" x="480" y="145">部门名称</text>
+          <ellipse class="attr-shape" cx="560" cy="110" rx="48" ry="28" />
+          <text class="label" x="560" y="110">地区</text>
+          <ellipse class="attr-shape" cx="660" cy="145" rx="48" ry="28" />
+          <text class="label" x="660" y="145">电话</text>
+
+          <ellipse class="attr-shape" cx="750" cy="160" rx="48" ry="28" />
+          <text class="label" x="750" y="160">数量</text>
+
+          <ellipse class="attr-shape" cx="835" cy="145" rx="66" ry="28" />
+          <text class="label pk" x="835" y="145">产品编号</text>
+          <ellipse class="attr-shape" cx="940" cy="110" rx="48" ry="28" />
+          <text class="label" x="940" y="110">品名</text>
+          <ellipse class="attr-shape" cx="1045" cy="145" rx="48" ry="28" />
+          <text class="label" x="1045" y="145">单价</text>
+
+          <!-- entities -->
+          <rect class="entity-shape" x="100" y="250" width="160" height="70" rx="0" />
+          <text class="label" x="180" y="285">职工</text>
+
+          <rect class="entity-shape" x="465" y="250" width="190" height="70" rx="0" />
+          <text class="label" x="560" y="285">销售部</text>
+
+          <rect class="entity-shape" x="860" y="250" width="160" height="70" rx="0" />
+          <text class="label" x="940" y="285">产品</text>
+
+          <!-- relationships -->
+          <polygon class="rel-shape" points="370,245 435,285 370,325 305,285" />
+          <text class="label" x="370" y="285">聘用</text>
+
+          <polygon class="rel-shape" points="750,245 815,285 750,325 685,285" />
+          <text class="label" x="750" y="285">销售</text>
+
+          <!-- cardinalities -->
+          <text class="cardinality" x="285" y="265">n</text>
+          <text class="cardinality" x="450" y="265">1</text>
+          <text class="cardinality" x="675" y="265">m</text>
+          <text class="cardinality" x="835" y="265">n</text>
+        </svg>
+      </div>
+      <div class="schema">
+        <h3>转换后的关系模式</h3>
+        <p>销售部(<span class="pk">部门名称</span>, 地区, 电话)</p>
+        <p>职工(<span class="pk">职工号</span>, 姓名, 性别, <span class="fk">部门名称</span>)</p>
+        <p>产品(<span class="pk">产品编号</span>, 品名, 单价)</p>
+        <p>销售(<span class="pk fk">部门名称</span>, <span class="pk fk">产品编号</span>, 数量)</p>
+        <p class="hint">外键：职工.部门名称 → 销售部.部门名称；销售.部门名称 → 销售部.部门名称；销售.产品编号 → 产品.产品编号。</p>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <h2>2（1）顾客有多个地址和多个电话号码</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1120 620" role="img" aria-label="顾客有多个地址和多个电话号码 E-R 图">
+          <!-- relationship lines -->
+          <line class="line" x1="500" y1="300" x2="620" y2="300" />
+
+          <!-- customer attributes -->
+          <line class="line" x1="340" y1="300" x2="210" y2="300" />
+          <line class="line" x1="410" y1="265" x2="410" y2="115" />
+          <line class="line" x1="390" y1="332" x2="250" y2="460" />
+          <line class="line" x1="460" y1="333" x2="500" y2="465" />
+
+          <!-- card attributes -->
+          <line class="line" x1="810" y1="265" x2="810" y2="115" />
+          <line class="line" x1="760" y1="273" x2="680" y2="160" />
+          <line class="line" x1="860" y1="273" x2="940" y2="160" />
+
+          <!-- composite address lines -->
+          <line class="line" x1="250" y1="490" x2="120" y2="560" />
+          <line class="line" x1="250" y1="490" x2="210" y2="570" />
+          <line class="line" x1="250" y1="490" x2="295" y2="570" />
+          <line class="line" x1="250" y1="490" x2="385" y2="560" />
+
+          <!-- composite phone lines -->
+          <line class="line" x1="500" y1="495" x2="455" y2="570" />
+          <line class="line" x1="500" y1="495" x2="548" y2="570" />
+
+          <!-- attributes -->
+          <ellipse class="attr-shape" cx="210" cy="300" rx="72" ry="28" />
+          <text class="label pk" x="210" y="300">身份证号</text>
+          <ellipse class="attr-shape" cx="410" cy="115" rx="48" ry="28" />
+          <text class="label" x="410" y="115">姓名</text>
+
+          <ellipse class="attr-shape" cx="250" cy="490" rx="62" ry="30" />
+          <ellipse class="double-attr" cx="250" cy="490" rx="70" ry="38" />
+          <text class="label" x="250" y="490">地址</text>
+
+          <ellipse class="attr-shape" cx="500" cy="495" rx="72" ry="30" />
+          <ellipse class="double-attr" cx="500" cy="495" rx="80" ry="38" />
+          <text class="label" x="500" y="495">电话号码</text>
+
+          <ellipse class="attr-shape" cx="120" cy="560" rx="38" ry="24" />
+          <text class="label small" x="120" y="560">省</text>
+          <ellipse class="attr-shape" cx="210" cy="570" rx="38" ry="24" />
+          <text class="label small" x="210" y="570">市</text>
+          <ellipse class="attr-shape" cx="295" cy="570" rx="38" ry="24" />
+          <text class="label small" x="295" y="570">区</text>
+          <ellipse class="attr-shape" cx="385" cy="560" rx="46" ry="24" />
+          <text class="label small" x="385" y="560">街道</text>
+
+          <ellipse class="attr-shape" cx="455" cy="570" rx="42" ry="24" />
+          <text class="label small" x="455" y="570">区号</text>
+          <ellipse class="attr-shape" cx="548" cy="570" rx="42" ry="24" />
+          <text class="label small" x="548" y="570">号码</text>
+
+          <ellipse class="attr-shape" cx="810" cy="115" rx="48" ry="28" />
+          <text class="label pk" x="810" y="115">卡号</text>
+          <ellipse class="attr-shape" cx="680" cy="160" rx="48" ry="28" />
+          <text class="label" x="680" y="160">等级</text>
+          <ellipse class="attr-shape" cx="940" cy="160" rx="48" ry="28" />
+          <text class="label" x="940" y="160">积分</text>
+
+          <!-- entities and relationship -->
+          <rect class="entity-shape" x="340" y="265" width="160" height="70" rx="0" />
+          <text class="label" x="420" y="300">顾客</text>
+
+          <polygon class="rel-shape" points="560,260 625,300 560,340 495,300" />
+          <text class="label" x="560" y="300">办理</text>
+
+          <rect class="entity-shape" x="620" y="265" width="180" height="70" rx="0" />
+          <text class="label" x="710" y="300">会员卡</text>
+
+          <text class="cardinality" x="520" y="278">1</text>
+          <text class="cardinality" x="600" y="278">1</text>
+        </svg>
+      </div>
+      <div class="schema">
+        <h3>转换后的关系模式</h3>
+        <p>顾客(<span class="pk">身份证号</span>, 姓名, 卡号, 等级, 积分)</p>
+        <p>顾客地址(<span class="pk fk">身份证号</span>, <span class="pk">省</span>, <span class="pk">市</span>, <span class="pk">区</span>, <span class="pk">街道</span>)</p>
+        <p>顾客电话(<span class="pk fk">身份证号</span>, <span class="pk">区号</span>, <span class="pk">号码</span>)</p>
+        <p class="hint">外键：顾客地址.身份证号 → 顾客.身份证号；顾客电话.身份证号 → 顾客.身份证号。卡号也可以作为候选码。</p>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <h2>2（2）顾客有多个地址，每个地址有多个电话号码</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1120 720" role="img" aria-label="顾客有多个地址且每个地址有多个电话号码 E-R 图">
+          <!-- relationship lines -->
+          <line class="line" x1="500" y1="230" x2="620" y2="230" />
+
+          <!-- customer attributes -->
+          <line class="line" x1="340" y1="230" x2="210" y2="230" />
+          <line class="line" x1="420" y1="195" x2="420" y2="80" />
+          <line class="line" x1="420" y1="265" x2="420" y2="390" />
+
+          <!-- card attrs -->
+          <line class="line" x1="710" y1="195" x2="710" y2="80" />
+          <line class="line" x1="655" y1="203" x2="590" y2="100" />
+          <line class="line" x1="765" y1="203" x2="830" y2="100" />
+
+          <!-- address composite lines -->
+          <line class="line" x1="420" y1="430" x2="250" y2="515" />
+          <line class="line" x1="420" y1="430" x2="355" y2="540" />
+          <line class="line" x1="420" y1="430" x2="455" y2="545" />
+          <line class="line" x1="420" y1="430" x2="575" y2="515" />
+
+          <!-- address to phone nested lines -->
+          <line class="line" x1="575" y1="515" x2="760" y2="560" />
+          <line class="line" x1="760" y1="590" x2="700" y2="660" />
+          <line class="line" x1="760" y1="590" x2="820" y2="660" />
+
+          <!-- attributes -->
+          <ellipse class="attr-shape" cx="210" cy="230" rx="72" ry="28" />
+          <text class="label pk" x="210" y="230">身份证号</text>
+          <ellipse class="attr-shape" cx="420" cy="80" rx="48" ry="28" />
+          <text class="label" x="420" y="80">姓名</text>
+
+          <ellipse class="attr-shape" cx="420" cy="430" rx="62" ry="30" />
+          <ellipse class="double-attr" cx="420" cy="430" rx="70" ry="38" />
+          <text class="label" x="420" y="430">地址</text>
+
+          <ellipse class="attr-shape" cx="250" cy="515" rx="38" ry="24" />
+          <text class="label small" x="250" y="515">省</text>
+          <ellipse class="attr-shape" cx="355" cy="540" rx="38" ry="24" />
+          <text class="label small" x="355" y="540">市</text>
+          <ellipse class="attr-shape" cx="455" cy="545" rx="38" ry="24" />
+          <text class="label small" x="455" y="545">区</text>
+          <ellipse class="attr-shape" cx="575" cy="515" rx="46" ry="24" />
+          <text class="label small" x="575" y="515">街道</text>
+
+          <ellipse class="attr-shape" cx="760" cy="590" rx="72" ry="30" />
+          <ellipse class="double-attr" cx="760" cy="590" rx="80" ry="38" />
+          <text class="label" x="760" y="590">电话号码</text>
+          <ellipse class="attr-shape" cx="700" cy="660" rx="42" ry="24" />
+          <text class="label small" x="700" y="660">区号</text>
+          <ellipse class="attr-shape" cx="820" cy="660" rx="42" ry="24" />
+          <text class="label small" x="820" y="660">号码</text>
+
+          <ellipse class="attr-shape" cx="710" cy="80" rx="48" ry="28" />
+          <text class="label pk" x="710" y="80">卡号</text>
+          <ellipse class="attr-shape" cx="590" cy="100" rx="48" ry="28" />
+          <text class="label" x="590" y="100">等级</text>
+          <ellipse class="attr-shape" cx="830" cy="100" rx="48" ry="28" />
+          <text class="label" x="830" y="100">积分</text>
+
+          <!-- entities and relationship -->
+          <rect class="entity-shape" x="340" y="195" width="160" height="70" rx="0" />
+          <text class="label" x="420" y="230">顾客</text>
+
+          <polygon class="rel-shape" points="560,190 625,230 560,270 495,230" />
+          <text class="label" x="560" y="230">办理</text>
+
+          <rect class="entity-shape" x="620" y="195" width="180" height="70" rx="0" />
+          <text class="label" x="710" y="230">会员卡</text>
+
+          <text class="cardinality" x="520" y="208">1</text>
+          <text class="cardinality" x="600" y="208">1</text>
+        </svg>
+      </div>
+      <div class="schema">
+        <h3>转换后的关系模式</h3>
+        <p>顾客(<span class="pk">身份证号</span>, 姓名, 卡号, 等级, 积分)</p>
+        <p>顾客地址(<span class="pk fk">身份证号</span>, <span class="pk">省</span>, <span class="pk">市</span>, <span class="pk">区</span>, <span class="pk">街道</span>)</p>
+        <p>地址电话(<span class="pk fk">身份证号</span>, <span class="pk fk">省</span>, <span class="pk fk">市</span>, <span class="pk fk">区</span>, <span class="pk fk">街道</span>, <span class="pk">区号</span>, <span class="pk">号码</span>)</p>
+        <p class="hint">外键：顾客地址.身份证号 → 顾客.身份证号；地址电话的身份证号、省、市、区、街道 → 顾客地址对应主码。</p>
+      </div>
+    </section>
+
+    <section class="sheet">
+      <h2>3. 部门、员工、实习生、项目</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1180 840" role="img" aria-label="部门、员工、实习生、项目 E-R 图">
+          <!-- core entity positions -->
+          <!-- department attributes -->
+          <line class="line" x1="240" y1="210" x2="120" y2="90" />
+          <line class="line" x1="320" y1="195" x2="320" y2="80" />
+          <line class="line" x1="400" y1="210" x2="520" y2="90" />
+
+          <!-- employee attributes -->
+          <line class="line" x1="820" y1="210" x2="700" y2="90" />
+          <line class="line" x1="900" y1="195" x2="900" y2="80" />
+          <line class="line" x1="980" y1="210" x2="1100" y2="90" />
+
+          <!-- intern attributes -->
+          <line class="line" x1="240" y1="595" x2="120" y2="740" />
+          <line class="line" x1="320" y1="610" x2="320" y2="760" />
+          <line class="line" x1="400" y1="595" x2="520" y2="740" />
+
+          <!-- project attributes -->
+          <line class="line" x1="820" y1="595" x2="710" y2="740" />
+          <line class="line" x1="900" y1="610" x2="900" y2="760" />
+          <line class="line" x1="980" y1="595" x2="1070" y2="720" />
+          <line class="line" x1="985" y1="555" x2="1085" y2="640" />
+
+          <!-- entity relationship lines -->
+          <line class="line" x1="440" y1="250" x2="780" y2="250" />
+          <line class="line" x1="440" y1="310" x2="780" y2="310" />
+          <line class="line" x1="320" y1="330" x2="320" y2="515" />
+          <line class="line" x1="440" y1="550" x2="780" y2="550" />
+          <line class="line" x1="900" y1="330" x2="900" y2="515" />
+          <line class="line" x1="820" y1="330" x2="820" y2="515" />
+
+          <!-- participation attribute -->
+          <line class="line" x1="820" y1="422" x2="690" y2="422" />
+
+          <!-- attributes -->
+          <ellipse class="attr-shape" cx="120" cy="90" rx="66" ry="28" />
+          <text class="label pk" x="120" y="90">部门编号</text>
+          <ellipse class="attr-shape" cx="320" cy="80" rx="66" ry="28" />
+          <text class="label" x="320" y="80">部门名称</text>
+          <ellipse class="attr-shape" cx="520" cy="90" rx="66" ry="28" />
+          <text class="label" x="520" y="90">办公地点</text>
+
+          <ellipse class="attr-shape" cx="700" cy="90" rx="66" ry="28" />
+          <text class="label pk" x="700" y="90">员工编号</text>
+          <ellipse class="attr-shape" cx="900" cy="80" rx="48" ry="28" />
+          <text class="label" x="900" y="80">姓名</text>
+          <ellipse class="attr-shape" cx="1100" cy="90" rx="48" ry="28" />
+          <text class="label" x="1100" y="90">级别</text>
+
+          <ellipse class="attr-shape" cx="120" cy="740" rx="66" ry="28" />
+          <text class="label pk" x="120" y="740">实习编号</text>
+          <ellipse class="attr-shape" cx="320" cy="760" rx="48" ry="28" />
+          <text class="label" x="320" y="760">姓名</text>
+          <ellipse class="attr-shape" cx="520" cy="740" rx="48" ry="28" />
+          <text class="label" x="520" y="740">年龄</text>
+
+          <ellipse class="attr-shape" cx="710" cy="740" rx="66" ry="28" />
+          <text class="label pk" x="710" y="740">项目编号</text>
+          <ellipse class="attr-shape" cx="900" cy="760" rx="66" ry="28" />
+          <text class="label" x="900" y="760">项目名称</text>
+          <ellipse class="attr-shape" cx="1070" cy="720" rx="66" ry="28" />
+          <text class="label" x="1070" y="720">开始日期</text>
+          <ellipse class="attr-shape" cx="1085" cy="640" rx="66" ry="28" />
+          <text class="label" x="1085" y="640">结束日期</text>
+
+          <ellipse class="attr-shape" cx="690" cy="422" rx="72" ry="28" />
+          <text class="label small" x="690" y="422">工作时间比</text>
+
+          <!-- entities -->
+          <rect class="entity-shape" x="200" y="210" width="240" height="120" rx="0" />
+          <text class="label" x="320" y="270">部门</text>
+
+          <rect class="entity-shape" x="780" y="210" width="240" height="120" rx="0" />
+          <text class="label" x="900" y="270">员工</text>
+
+          <rect class="entity-shape" x="200" y="515" width="240" height="90" rx="0" />
+          <text class="label" x="320" y="560">实习生</text>
+
+          <rect class="entity-shape" x="780" y="515" width="240" height="90" rx="0" />
+          <text class="label" x="900" y="560">项目</text>
+
+          <!-- relationships -->
+          <polygon class="rel-shape" points="610,210 675,250 610,290 545,250" />
+          <text class="label" x="610" y="250">工作</text>
+
+          <polygon class="rel-shape" points="610,270 675,310 610,350 545,310" />
+          <text class="label" x="610" y="310">管理</text>
+
+          <polygon class="rel-shape" points="320,390 385,430 320,470 255,430" />
+          <text class="label" x="320" y="430">实习</text>
+
+          <polygon class="rel-shape" points="900,390 965,430 900,470 835,430" />
+          <text class="label" x="900" y="430">负责</text>
+
+          <polygon class="rel-shape" points="820,390 885,430 820,470 755,430" />
+          <text class="label" x="820" y="430">参与</text>
+
+          <polygon class="rel-shape" points="610,510 675,550 610,590 545,550" />
+          <text class="label" x="610" y="550">参与</text>
+
+          <!-- connect diamonds to lines more explicitly -->
+          <line class="line" x1="440" y1="550" x2="545" y2="550" />
+          <line class="line" x1="675" y1="550" x2="780" y2="550" />
+
+          <!-- cardinalities -->
+          <text class="cardinality" x="480" y="232">1</text>
+          <text class="cardinality" x="735" y="232">n</text>
+
+          <text class="cardinality" x="480" y="292">1</text>
+          <text class="cardinality" x="735" y="292">1</text>
+
+          <text class="cardinality" x="340" y="365">1</text>
+          <text class="cardinality" x="340" y="490">n</text>
+
+          <text class="cardinality" x="920" y="365">1</text>
+          <text class="cardinality" x="920" y="490">1</text>
+
+          <text class="cardinality" x="800" y="365">m</text>
+          <text class="cardinality" x="800" y="490">n</text>
+
+          <text class="cardinality" x="480" y="532">n</text>
+          <text class="cardinality" x="735" y="532">1</text>
+        </svg>
+      </div>
+      <div class="schema">
+        <h3>转换后的关系模式</h3>
+        <p>部门(<span class="pk">部门编号</span>, 部门名称, 办公地点, <span class="fk">经理员工编号</span>)</p>
+        <p>员工(<span class="pk">员工编号</span>, 姓名, 级别, <span class="fk">部门编号</span>)</p>
+        <p>实习生(<span class="pk">实习编号</span>, 姓名, 年龄, <span class="fk">部门编号</span>, <span class="fk">项目编号</span>)</p>
+        <p>项目(<span class="pk">项目编号</span>, 项目名称, 开始日期, 结束日期, <span class="fk">负责人员工编号</span>)</p>
+        <p>员工参与项目(<span class="pk fk">员工编号</span>, <span class="pk fk">项目编号</span>, 工作时间比)</p>
+        <p class="hint">外键：员工.部门编号 → 部门.部门编号；部门.经理员工编号 → 员工.员工编号；实习生.部门编号 → 部门.部门编号；实习生.项目编号 → 项目.项目编号；项目.负责人员工编号 → 员工.员工编号；员工参与项目中的员工编号、项目编号分别引用员工和项目。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

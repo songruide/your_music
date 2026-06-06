@@ -36,7 +36,7 @@ export interface AuthSession {
 
 export interface CellphoneLoginPayload extends Record<string, unknown> {
   phone: string
-  password: string
+  captcha: string
 }
 
 export function getLoginQrKey() {
@@ -79,6 +79,15 @@ export function cellphoneLoginAuth(payload: CellphoneLoginPayload) {
   return request<AuthSession>('/api/auth/cellphone-login', {
     method: 'POST',
     body: payload,
+  })
+}
+
+export function sendCellphoneCaptcha(phone: string) {
+  return request<{ sent: boolean }>('/api/auth/captcha/send', {
+    method: 'POST',
+    body: {
+      phone,
+    },
   })
 }
 
